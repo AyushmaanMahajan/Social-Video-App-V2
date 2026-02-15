@@ -1,4 +1,4 @@
-# Serendipity Stream (Next.js)
+# Serendipity Stream
 
 A single Next.js application that combines the previous React (Vite) frontend and Express backend into one codebase.
 
