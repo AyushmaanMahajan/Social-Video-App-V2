@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pool from '@/lib/db';
 
@@ -11,7 +11,7 @@ export async function POST(request) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcryptjs.hash(password, 10);
 
     const result = await pool.query(
       'INSERT INTO users (email, password_hash, name, age, location) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, age, location, created_at',

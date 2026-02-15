@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pool from '@/lib/db';
 
@@ -18,7 +18,7 @@ export async function POST(request) {
     }
 
     const user = result.rows[0];
-    const isValid = await bcrypt.compare(password, user.password_hash);
+    const isValid = await bcryptjs.compare(password, user.password_hash);
 
     if (!isValid) {
       return Response.json({ error: 'Invalid credentials' }, { status: 401 });
