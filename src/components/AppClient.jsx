@@ -2,31 +2,38 @@
 
 import React, { useState, useEffect } from 'react';
 import ProfileForm from './ProfileForm';
-import Browse from './Browse';
-import Pool from './Pool';
 import UserProfile from './UserProfile';
-import VideoChat from './VideoChat';
 import SettingsPage from './SettingsPage';
 import EditProfileModal from './EditProfileModal';
+import Encounter from './Encounter';
+import Interactions from './Interactions';
+import { useVideoSocket } from '@/lib/useVideoSocket';
+
+const NAV_ITEMS = [
+  { id: 'encounter', label: 'Encounter' },
+  { id: 'interactions', label: 'Interactions' },
+  { id: 'profile', label: 'Profile' }
+];
 
 export default function AppClient() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [currentPage, setCurrentPage] = useState('profile');
-  const [darkMode, setDarkMode] = useState(true);
+  const [currentPage, setCurrentPage] = useState('encounter');
   const [showSettings, setShowSettings] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const { socket, connected: socketConnected } = useVideoSocket();
 
   useEffect(() => {
-    if (darkMode) {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
+    document.body.classList.add('dark-mode');
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.includes('/interactions')) setCurrentPage('interactions');
+      if (path.includes('/profile')) setCurrentPage('profile');
     }
-  }, [darkMode]);
+  }, []);
 
   const handleProfileCreated = (user) => {
     setCurrentUser(user);
-    setCurrentPage('browse');
+    setCurrentPage('encounter');
   };
 
   const handleSaveProfile = async (updatedData) => {
@@ -38,51 +45,35 @@ export default function AppClient() {
     setShowEditProfile(true);
   };
 
+  const renderNavButtons = () => (
+    NAV_ITEMS.map((item) => (
+      <button
+        key={item.id}
+        className={currentPage === item.id ? 'nav-btn active' : 'nav-btn'}
+        onClick={() => setCurrentPage(item.id)}
+        aria-label={item.label}
+      >
+        <span className="nav-label">{item.label}</span>
+      </button>
+    ))
+  );
+
   return (
     <div className="app">
       <header className="app-header">
         <h1>Serendipity Stream</h1>
         {currentUser && (
           <div className="header-actions">
-            <nav className="nav">
-              <button
-                className={currentPage === 'browse' ? 'nav-btn active' : 'nav-btn'}
-                onClick={() => setCurrentPage('browse')}
-              >
-                Discover
-              </button>
-              <button
-                className={currentPage === 'pool' ? 'nav-btn active' : 'nav-btn'}
-                onClick={() => setCurrentPage('pool')}
-              >
-                Matches
-              </button>
-              <button
-                className={currentPage === 'video' ? 'nav-btn active' : 'nav-btn'}
-                onClick={() => setCurrentPage('video')}
-              >
-                Video Chat
-              </button>
-              <button
-                className={currentPage === 'profile' ? 'nav-btn active' : 'nav-btn'}
-                onClick={() => setCurrentPage('profile')}
-              >
-                Profile
-              </button>
+            <nav className="nav nav-desktop" aria-label="Desktop navigation">
+              {renderNavButtons()}
             </nav>
-            <button
-              className="dark-mode-toggle"
-              onClick={() => setDarkMode(!darkMode)}
-              title={darkMode ? 'Light Mode' : 'Dark Mode'}
-            >
-              {darkMode ? '☀️' : '🌙'}
-            </button>
+            
             <button
               className="settings-btn"
               onClick={() => setShowSettings(true)}
               title="Settings"
             >
-              ⚙️
+              Settings
             </button>
           </div>
         )}
@@ -91,14 +82,26 @@ export default function AppClient() {
       <main className="app-main">
         {!currentUser && <ProfileForm onProfileCreated={handleProfileCreated} />}
 
-        {currentUser && currentPage === 'browse' && <Browse currentUser={currentUser} />}
+        {currentUser && currentPage === 'encounter' && (
+          <Encounter
+            socket={socket}
+            socketConnected={socketConnected}
+            currentUser={currentUser}
+          />
+        )}
 
-        {currentUser && currentPage === 'pool' && <Pool currentUser={currentUser} />}
+        {currentUser && currentPage === 'interactions' && (
+          <Interactions socket={socket} socketConnected={socketConnected} />
+        )}
 
         {currentUser && currentPage === 'profile' && <UserProfile currentUser={currentUser} />}
-
-        {currentUser && currentPage === 'video' && <VideoChat currentUser={currentUser} />}
       </main>
+
+      {currentUser && (
+        <nav className="nav nav-mobile" aria-label="Mobile navigation">
+          {renderNavButtons()}
+        </nav>
+      )}
 
       {showSettings && (
         <SettingsPage onEditProfile={handleOpenEditProfile} onClose={() => setShowSettings(false)} />
@@ -114,3 +117,5 @@ export default function AppClient() {
     </div>
   );
 }
+
+

@@ -8,12 +8,16 @@ const { createCallAttempt, updateCallStatus, STATUS } = require('./videoControll
 
 const VIDEO_NAMESPACE = '/video';
 const CALL_TIMEOUT_MS = 45 * 1000;
+const ENCOUNTER_TIMEOUT_MS = 30 * 1000;
 
 /** In-memory: userId -> { peerId, callId, timeoutId } */
 const userInCall = new Map();
 
 /** Socket id -> userId for lookup */
 const socketToUserId = new Map();
+
+/** Encounter presence: userId -> { requestedUserId, ready, timer, socketId } */
+const userInEncounter = new Map();
 
 function getUserId(socket) {
   const token = socket.handshake.auth?.token;
@@ -26,14 +30,93 @@ function getUserId(socket) {
   }
 }
 
-async function isMutualMatch(userId, targetId) {
-  const r = await pool.query(
-    `SELECT 
-      EXISTS(SELECT 1 FROM pools WHERE user_id = $1 AND added_user_id = $2) AS a,
-      EXISTS(SELECT 1 FROM pools WHERE user_id = $2 AND added_user_id = $1) AS b`,
-    [userId, targetId]
+function clearEncounterState(userId) {
+  const state = userInEncounter.get(userId);
+  if (state?.timer) clearTimeout(state.timer);
+  userInEncounter.delete(userId);
+}
+
+function normalizePair(a, b) {
+  const userA = Math.min(Number(a), Number(b));
+  const userB = Math.max(Number(a), Number(b));
+  return [userA, userB];
+}
+
+async function upsertInteractionStatus(userAId, userBId, status) {
+  const [userA, userB] = normalizePair(userAId, userBId);
+  try {
+    await pool.query(
+      `
+      INSERT INTO interactions (user_a, user_b, status)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_a, user_b)
+      DO UPDATE SET status = EXCLUDED.status, last_interaction_at = NOW()
+      `,
+      [userA, userB, status]
+    );
+  } catch (e) {
+    console.error('interaction upsert error', e);
+  }
+}
+
+async function isChatMutual(userId, targetUserId) {
+  const res = await pool.query(
+    `
+    SELECT
+      EXISTS(SELECT 1 FROM interaction_chat_settings WHERE user_id = $1 AND target_user_id = $2 AND enabled = true) as me_enabled,
+      EXISTS(SELECT 1 FROM interaction_chat_settings WHERE user_id = $2 AND target_user_id = $1 AND enabled = true) as them_enabled
+    `,
+    [userId, targetUserId]
   );
-  return r.rows[0] && r.rows[0].a && r.rows[0].b;
+  const row = res.rows[0] || { me_enabled: false, them_enabled: false };
+  return row.me_enabled && row.them_enabled;
+}
+
+async function getUserNames(userIds = []) {
+  if (!userIds.length) return new Map();
+  const res = await pool.query('SELECT id, name FROM users WHERE id = ANY($1)', [userIds]);
+  const map = new Map();
+  res.rows.forEach((row) => {
+    map.set(Number(row.id), row.name || 'Someone');
+  });
+  return map;
+}
+
+async function emitEncounterMatch(videoNs, userAId, userBId) {
+  if (userInCall.has(userAId) || userInCall.has(userBId)) return;
+
+  let callRecord;
+  try {
+    callRecord = await createCallAttempt(userAId, userBId);
+  } catch (e) {
+    console.error('video_calls create (encounter) error', e);
+    return;
+  }
+  if (!callRecord) return;
+
+  userInCall.set(userAId, { peerId: userBId, callId: callRecord.id, timeoutId: null });
+  userInCall.set(userBId, { peerId: userAId, callId: callRecord.id, timeoutId: null });
+  await updateCallStatus(callRecord.id, STATUS.CONNECTED, { setConnectedAt: true });
+  await upsertInteractionStatus(userAId, userBId, 'connected');
+
+  const names = await getUserNames([userAId, userBId]);
+  const offererIsA = userAId < userBId;
+
+  videoNs.to(`user:${userAId}`).emit('encounter-match', {
+    callId: callRecord.id,
+    peerId: userBId,
+    peerName: names.get(userBId) || 'Someone',
+    shouldOffer: offererIsA,
+  });
+  videoNs.to(`user:${userBId}`).emit('encounter-match', {
+    callId: callRecord.id,
+    peerId: userAId,
+    peerName: names.get(userAId) || 'Someone',
+    shouldOffer: !offererIsA,
+  });
+
+  clearEncounterState(userAId);
+  clearEncounterState(userBId);
 }
 
 function registerVideoNamespace(io) {
@@ -51,53 +134,53 @@ function registerVideoNamespace(io) {
     const userId = socket.userId;
     socket.join(`user:${userId}`);
 
-    socket.on('call-request', async (payload) => {
-      const { receiverId, callerName } = payload || {};
-      if (!receiverId) return socket.emit('error', { message: 'receiverId required' });
+    socket.on('encounter-ready', () => {
+      if (userInCall.has(userId)) {
+        return socket.emit('error', { message: 'Already in a call' });
+      }
+      const current = userInEncounter.get(userId);
+      if (current?.timer) clearTimeout(current.timer);
+      userInEncounter.set(userId, { requestedUserId: null, ready: true, timer: null, socketId: socket.id });
+      socket.emit('encounter-ready-ack', {});
+    });
+
+    socket.on('encounter-exit', () => {
+      clearEncounterState(userId);
+    });
+
+    socket.on('encounter-request', async (payload) => {
+      const { targetUserId } = payload || {};
+      if (!targetUserId) return socket.emit('error', { message: 'targetUserId required' });
 
       if (userInCall.has(userId)) {
-        return socket.emit('call-rejected', { reason: 'You are already in a call' });
+        return socket.emit('encounter-timeout', { reason: 'already_in_call' });
+      }
+      if (userInCall.has(Number(targetUserId))) {
+        return socket.emit('encounter-timeout', { reason: 'target_in_call' });
       }
 
-      const mutual = await isMutualMatch(userId, receiverId);
-      if (!mutual) {
-        return socket.emit('call-rejected', { reason: 'Not a mutual match' });
+      const state = userInEncounter.get(userId) || { requestedUserId: null, ready: true, timer: null, socketId: socket.id };
+      if (state.timer) clearTimeout(state.timer);
+      state.ready = true;
+      state.requestedUserId = Number(targetUserId);
+      state.timer = setTimeout(() => {
+        clearEncounterState(userId);
+      socket.emit('encounter-timeout', { reason: 'no_mutual' });
+        if (state.requestedUserId) {
+          upsertInteractionStatus(userId, state.requestedUserId, 'timeout');
+        }
+      }, ENCOUNTER_TIMEOUT_MS);
+      userInEncounter.set(userId, state);
+
+      const other = userInEncounter.get(Number(targetUserId));
+      const mutual = other && other.ready && other.requestedUserId === userId;
+      if (mutual) {
+        await emitEncounterMatch(videoNs, userId, Number(targetUserId));
       }
+    });
 
-      const receiverSockets = await videoNs.in(`user:${receiverId}`).fetchSockets();
-      if (receiverSockets.length === 0) {
-        return socket.emit('call-rejected', { reason: 'User offline' });
-      }
-      if (userInCall.has(Number(receiverId))) {
-        return socket.emit('call-rejected', { reason: 'User is busy' });
-      }
-
-      let callRecord;
-      try {
-        callRecord = await createCallAttempt(userId, receiverId);
-      } catch (e) {
-        console.error('video_calls create error', e);
-        return socket.emit('error', { message: 'Failed to create call record' });
-      }
-
-      const callId = callRecord.id;
-      const timeoutId = setTimeout(async () => {
-        if (!userInCall.has(userId)) return;
-        userInCall.delete(userId);
-        userInCall.delete(Number(receiverId));
-        await updateCallStatus(callId, STATUS.TIMEOUT, { setEndedAt: true, failureReason: 'timeout' });
-        socket.emit('call-timeout', { callId });
-        videoNs.to(`user:${receiverId}`).emit('call-ended', { callId, reason: 'timeout' });
-      }, CALL_TIMEOUT_MS);
-
-      userInCall.set(userId, { peerId: receiverId, callId, timeoutId });
-
-      videoNs.to(`user:${receiverId}`).emit('incoming-call', {
-        callId,
-        callerId: userId,
-        callerName: callerName || 'Someone',
-      });
-      socket.emit('call-request-sent', { callId });
+    socket.on('call-request', () => {
+      socket.emit('error', { message: 'Direct calls are disabled. Use Encounter.' });
     });
 
     socket.on('call-accept', async (payload) => {
@@ -107,9 +190,6 @@ function registerVideoNamespace(io) {
       if (userInCall.has(userId)) {
         return socket.emit('error', { message: 'Already in a call' });
       }
-
-      const mutual = await isMutualMatch(userId, callerId);
-      if (!mutual) return socket.emit('error', { message: 'Not a mutual match' });
 
       const callerData = userInCall.get(Number(callerId));
       if (!callerData || callerData.callId !== callId) {
@@ -122,6 +202,7 @@ function registerVideoNamespace(io) {
       userInCall.set(userId, { peerId: callerId, callId, timeoutId: null });
 
       await updateCallStatus(callId, STATUS.CONNECTED, { setConnectedAt: true });
+      await upsertInteractionStatus(userId, callerId, 'connected');
 
       videoNs.to(`user:${callerId}`).emit('call-accepted', { callId, receiverId: userId });
       socket.emit('call-accepted', { callId });
@@ -170,10 +251,37 @@ function registerVideoNamespace(io) {
       videoNs.to(`user:${my.peerId}`).emit('webrtc-ice', payload);
     });
 
-    socket.on('chat-message', (payload) => {
-      const my = userInCall.get(userId);
-      if (!my) return;
-      videoNs.to(`user:${my.peerId}`).emit('chat-message', { fromUserId: userId, text: payload?.text ?? '' });
+    socket.on('chat-message', async (payload) => {
+      const { targetUserId, text } = payload || {};
+      if (!targetUserId || !text) return;
+      const allowed = await isChatMutual(userId, Number(targetUserId));
+      if (!allowed) {
+        return socket.emit('error', { message: 'Chat not unlocked' });
+      }
+      videoNs.to(`user:${targetUserId}`).emit('chat-message', { fromUserId: userId, text });
+    });
+
+    socket.on('chat-toggle', async (payload) => {
+      const { targetUserId, enabled } = payload || {};
+      if (!targetUserId || typeof enabled !== 'boolean') return;
+      try {
+        await pool.query(
+          `
+          INSERT INTO interaction_chat_settings (user_id, target_user_id, enabled)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (user_id, target_user_id)
+          DO UPDATE SET enabled = EXCLUDED.enabled
+          `,
+          [userId, targetUserId, enabled]
+        );
+        const mutual = await isChatMutual(userId, Number(targetUserId));
+        if (mutual) {
+          videoNs.to(`user:${userId}`).emit('chat-unlocked', { peerId: Number(targetUserId) });
+          videoNs.to(`user:${targetUserId}`).emit('chat-unlocked', { peerId: Number(userId) });
+        }
+      } catch (e) {
+        console.error('chat-toggle error', e);
+      }
     });
 
     // ICE failure reporting (for logging)
@@ -197,6 +305,7 @@ function registerVideoNamespace(io) {
         updateCallStatus(my.callId, STATUS.FAILED, { setEndedAt: true, failureReason: 'disconnected' }).catch(() => {});
         videoNs.to(`user:${my.peerId}`).emit('call-ended', { callId: my.callId, reason: 'disconnected' });
       }
+      clearEncounterState(userId);
     });
   });
 

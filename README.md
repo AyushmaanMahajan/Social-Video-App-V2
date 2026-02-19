@@ -1,6 +1,7 @@
 # Serendipity Stream
 
 A single Next.js application that combines the previous React (Vite) frontend and Express backend into one codebase.
+The primary user flow lives at `/encounter`, a time-bound, real-time connection surface that defaults after login.
 
 ## Setup
 
@@ -57,13 +58,13 @@ A single Next.js application that combines the previous React (Vite) frontend an
 - `POST /api/auth/login` – Login
 - `GET /api/users/:userId` – Get user (auth required)
 - `PUT /api/users/me` – Update current user (auth required)
-- `GET /api/pool/profiles` – Browse profiles
-- `POST /api/pool/add` – Add to pool
-- `GET /api/pool/my-pool` – My pool
-- `GET /api/pool/incoming` – Incoming
-- `GET /api/pool/matches` – Mutual matches
-- `GET /api/pool/mutual/:targetId` – Check mutual
-- `POST /api/pool/report` – Report user
+- `GET /api/encounter/next` – Fetch a single eligible encounter profile (auth required)
+- `POST /api/encounter/skip` – Record a skipped encounter (auth required)
+- `GET /api/interactions` – List recent interactions
+- `POST /api/interactions/record` – Upsert interaction status (connected/skipped/timeout)
+- `POST /api/interactions/chat-toggle` – Enable/disable chat for a specific user
+- `GET /api/interactions/chat-status/:targetId` – Chat mutual status
+- Legacy pool/match endpoints now return 410 (removed)
 
 Auth: send `Authorization: Bearer <token>` for protected routes.
 

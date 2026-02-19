@@ -1,25 +1,46 @@
 import React, { forwardRef } from 'react';
-import PhotoCarousel from './PhotoCarousel';
 
 const ProfileContent = forwardRef(({ profile }, ref) => {
+  const photos = (profile.photos || []).filter(Boolean);
+  const prompts = (profile.prompts || []).filter((prompt) => prompt?.question || prompt?.answer);
+
   return (
     <div className="swipe-scroll-content" ref={ref}>
-      <PhotoCarousel photos={profile.photos} />
-      
       <div className="profile-details">
         <div className="profile-header-info">
           <h2>{profile.name}, {profile.age}</h2>
-          <p className="location">📍 {profile.location}</p>
+          <p className="location">{profile.location}</p>
         </div>
 
-        {profile.prompts && profile.prompts.length > 0 && (
+        {(prompts.length > 0 || photos.length > 0) && (
           <div className="prompts-section">
-            {profile.prompts.map((prompt, index) => (
-              <div key={index} className="prompt-card">
-                <h4>{prompt.question}</h4>
-                <p>{prompt.answer}</p>
-              </div>
-            ))}
+            <div className="profile-flow">
+              {photos[0] && (
+                <div className="profile-inline-photo">
+                  <img src={photos[0]} alt={`${profile.name} photo 1`} />
+                </div>
+              )}
+
+              {prompts.map((prompt, index) => (
+                <React.Fragment key={`prompt-${index}`}>
+                  <div className="prompt-card">
+                    <h4>{prompt.question || 'Prompt'}</h4>
+                    <p>{prompt.answer || ''}</p>
+                  </div>
+                  {photos[index + 1] && (
+                    <div className="profile-inline-photo">
+                      <img src={photos[index + 1]} alt={`${profile.name} photo ${index + 2}`} />
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+
+              {prompts.length === 0 && photos.slice(1).map((photo, index) => (
+                <div key={`photo-only-${index + 2}`} className="profile-inline-photo">
+                  <img src={photo} alt={`${profile.name} photo ${index + 2}`} />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

@@ -1,23 +1,14 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 
 function SettingsPage({ onEditProfile, onClose }) {
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const handleDeleteAccount = () => {
-    if (window.confirm('Are you sure you want to delete your account? This cannot be undone.')) {
-      // Handle account deletion
-      alert('Account deletion would be processed here');
-    }
-  };
-
   const menuItems = [
-    { icon: '✏️', label: 'Edit Profile', action: onEditProfile },
-    { icon: '👤', label: 'Account Info', action: () => alert('Account info') },
-    { icon: '🔒', label: 'Privacy Controls', action: () => alert('Privacy controls') },
-    { icon: '🔔', label: 'Notifications', action: () => alert('Notifications') },
-    { icon: '💬', label: 'Support', action: () => alert('Support') },
-    { icon: '📋', label: 'Community Guidelines', action: () => alert('Guidelines') },
+    { label: 'Edit Profile', action: onEditProfile },
+    { label: 'Account Info', action: () => alert('Account info') },
+    { label: 'Privacy Controls', action: () => alert('Privacy controls') },
+    { label: 'Notifications', action: () => alert('Notifications') },
+    { label: 'Support', action: () => alert('Support') },
+    { label: 'Community Guidelines', action: () => alert('Guidelines') },
   ];
 
   return (
@@ -25,7 +16,7 @@ function SettingsPage({ onEditProfile, onClose }) {
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Settings</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>Close</button>
         </div>
 
         <div className="settings-content">
@@ -36,20 +27,12 @@ function SettingsPage({ onEditProfile, onClose }) {
                 className="settings-menu-item"
                 onClick={item.action}
               >
-                <span className="menu-icon">{item.icon}</span>
                 <span className="menu-label">{item.label}</span>
-                <span className="menu-arrow">›</span>
               </button>
             ))}
           </div>
 
           <div className="settings-footer">
-            <button
-              className="delete-account-btn"
-              onClick={handleDeleteAccount}
-            >
-              Delete Account
-            </button>
             <p className="app-version">Version 1.0.0</p>
           </div>
         </div>

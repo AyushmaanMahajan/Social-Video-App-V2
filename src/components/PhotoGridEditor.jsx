@@ -31,7 +31,6 @@ function PhotoGridEditor({ photos, onChange }) {
     <div className="photo-grid-editor">
       {slots.map((_, index) => {
         const photo = photos[index];
-        
         return (
           <div
             key={index}
@@ -49,22 +48,21 @@ function PhotoGridEditor({ photos, onChange }) {
                       onClick={() => handleReplacePhoto(index)}
                       title="Replace"
                     >
-                      🔄
+                      Replace
                     </button>
                     <button
                       className="photo-action-btn"
                       onClick={() => handleRemovePhoto(index)}
                       title="Remove"
                     >
-                      🗑️
+                      Remove
                     </button>
                   </div>
                 )}
               </>
             ) : (
               <button className="add-photo-btn" onClick={handleAddPhoto}>
-                <span className="plus-icon">+</span>
-                <span className="add-text">Add Photo</span>
+                Add Photo
               </button>
             )}
           </div>

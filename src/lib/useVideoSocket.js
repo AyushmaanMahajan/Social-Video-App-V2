@@ -13,13 +13,23 @@ const getSocketUrl = () => {
  * Connect to /video namespace with JWT. Emits join on connect.
  * Returns { socket, connected }.
  */
-export function useVideoSocket() {
+export function useVideoSocket(enabled = true) {
   const [connected, setConnected] = useState(false);
   const [socket, setSocket] = useState(null);
+  const token = enabled ? getToken() : null;
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
+    if (!enabled) {
+      setConnected(false);
+      setSocket(null);
+      return;
+    }
+
+    if (!token) {
+      setConnected(false);
+      setSocket(null);
+      return;
+    }
 
     const url = getSocketUrl();
     const s = io(`${url}/video`, {
@@ -47,7 +57,7 @@ export function useVideoSocket() {
       setSocket(null);
       setConnected(false);
     };
-  }, []);
+  }, [token, enabled]);
 
   return { socket, connected };
 }

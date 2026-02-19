@@ -67,7 +67,7 @@ function EditProfileModal({ user, onClose, onSave }) {
         <div className="modal-scroll-content">
           {/* Identity Layer */}
           <div className="edit-section">
-            <h3 className="section-label">📸 Photos</h3>
+            <h3 className="section-label">Photos</h3>
             <PhotoGridEditor
               photos={formData.photos}
               onChange={(photos) => handleChange('photos', photos)}
@@ -75,7 +75,7 @@ function EditProfileModal({ user, onClose, onSave }) {
           </div>
 
           <div className="edit-section">
-            <h3 className="section-label">👤 Identity</h3>
+            <h3 className="section-label">Identity</h3>
             <div className="form-grid">
               <div className="form-field">
                 <label>Name</label>
@@ -110,7 +110,7 @@ function EditProfileModal({ user, onClose, onSave }) {
 
           {/* Narrative Layer */}
           <div className="edit-section">
-            <h3 className="section-label">💬 Prompts</h3>
+            <h3 className="section-label">Prompts</h3>
             <PromptEditor
               prompts={formData.prompts}
               onChange={(prompts) => handleChange('prompts', prompts)}
@@ -118,7 +118,7 @@ function EditProfileModal({ user, onClose, onSave }) {
           </div>
 
           <div className="edit-section">
-            <h3 className="section-label">✍️ About</h3>
+            <h3 className="section-label">About</h3>
             <textarea
               className="about-textarea"
               value={formData.about}
@@ -130,7 +130,7 @@ function EditProfileModal({ user, onClose, onSave }) {
 
           {/* Personality Layer */}
           <div className="edit-section">
-            <h3 className="section-label">⭐ Interests</h3>
+            <h3 className="section-label">Interests</h3>
             <input
               type="text"
               value={formData.interests.join(', ')}
@@ -148,7 +148,7 @@ function EditProfileModal({ user, onClose, onSave }) {
           </div>
 
           <div className="edit-section">
-            <h3 className="section-label">🎯 Conversation Starters</h3>
+            <h3 className="section-label">Conversation Starters</h3>
             <div className="form-field">
               <label>Currently into</label>
               <input
@@ -171,7 +171,7 @@ function EditProfileModal({ user, onClose, onSave }) {
 
           {/* Aesthetic Customization */}
           <div className="edit-section">
-            <h3 className="section-label">🎨 Profile Theme</h3>
+            <h3 className="section-label">Profile Theme</h3>
             <ThemeSelector
               selected={formData.accentTheme}
               onChange={(theme) => handleChange('accentTheme', theme)}
@@ -180,7 +180,7 @@ function EditProfileModal({ user, onClose, onSave }) {
 
           {/* Privacy Controls */}
           <div className="edit-section">
-            <h3 className="section-label">🔒 Visibility</h3>
+            <h3 className="section-label">Visibility</h3>
             <div className="toggle-list">
               <label className="toggle-item">
                 <span>Show age</span>

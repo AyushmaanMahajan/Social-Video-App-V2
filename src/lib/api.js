@@ -43,38 +43,34 @@ export const updateUser = async (userData) => {
   return data;
 };
 
-export const getProfiles = async () => {
-  const { data } = await axios.get('/api/pool/profiles');
+export const getEncounterProfile = async () => {
+  const { data } = await axios.get('/api/encounter/next');
+  return data?.profile || null;
+};
+
+export const skipEncounterProfile = async (skippedUserId) => {
+  const { data } = await axios.post('/api/encounter/skip', { skippedUserId });
   return data;
 };
 
-export const addToPool = async (addedUserId) => {
-  const { data } = await axios.post('/api/pool/add', { addedUserId });
+export const recordInteraction = async (otherUserId, status) => {
+  const { data } = await axios.post('/api/interactions/record', { otherUserId, status });
   return data;
 };
 
-export const getPool = async () => {
-  const { data } = await axios.get('/api/pool/my-pool');
+export const getInteractions = async (search) => {
+  const params = search ? { search } : {};
+  const { data } = await axios.get('/api/interactions', { params });
   return data;
 };
 
-export const getIncoming = async () => {
-  const { data } = await axios.get('/api/pool/incoming');
+export const toggleChat = async (targetUserId, enabled) => {
+  const { data } = await axios.post('/api/interactions/chat-toggle', { targetUserId, enabled });
   return data;
 };
 
-export const getMatches = async () => {
-  const { data } = await axios.get('/api/pool/matches');
-  return data;
-};
-
-export const checkMutual = async (targetId) => {
-  const { data } = await axios.get(`/api/pool/mutual/${targetId}`);
-  return data;
-};
-
-export const reportUser = async (reportedUserId, reason) => {
-  const { data } = await axios.post('/api/pool/report', { reportedUserId, reason });
+export const getChatStatus = async (targetUserId) => {
+  const { data } = await axios.get(`/api/interactions/chat-status/${targetUserId}`);
   return data;
 };
 

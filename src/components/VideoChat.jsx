@@ -1,31 +1,35 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getMatches, getToken } from '@/lib/api';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoSocket } from '@/lib/useVideoSocket';
 import { getIceServers } from '@/lib/webrtcConfig';
 
-const CALL_TIMEOUT_MS = 45000;
+function VideoChat({
+  currentUser,
+  socket: externalSocket,
+  socketConnected: externalConnected,
+  encounterMatch,
+  onConsumeEncounterMatch,
+  onExit,
+}) {
+  const { socket: hookSocket, connected: hookConnected } = useVideoSocket(!externalSocket);
+  const socket = externalSocket || hookSocket;
+  const socketConnected = externalSocket ? externalConnected : hookConnected;
 
-function VideoChat({ currentUser }) {
-  const { socket, connected: socketConnected } = useVideoSocket();
-  const [mutualMatches, setMutualMatches] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [callState, setCallState] = useState('idle'); // idle | calling | incoming | connecting | connected | rejected | ended
-  const [selectedMatch, setSelectedMatch] = useState(null);
-  const [incomingCall, setIncomingCall] = useState(null); // { callId, callerId, callerName }
-  const [messages, setMessages] = useState([]);
+  const [callState, setCallState] = useState('idle'); // idle | connecting | connected | ended
   const [connectionStatus, setConnectionStatus] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const isCallerRef = useRef(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [peer, setPeer] = useState(null);
+  const [callId, setCallId] = useState(null);
 
+  const isCallerRef = useRef(false);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
 
-  // Testing: ?videoTest=ice_failure | timeout | disconnect
   const testMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('videoTest');
 
   const cleanup = useCallback(() => {
@@ -39,80 +43,71 @@ function VideoChat({ currentUser }) {
     }
     pendingCandidatesRef.current = [];
     setConnectionStatus('');
-    setSelectedMatch(null);
-    setIncomingCall(null);
-    setMessages([]);
     setCallState('idle');
-  }, []);
-
-  const loadMatches = useCallback(async () => {
-    try {
-      const list = await getMatches();
-      setMutualMatches(list);
-    } catch (e) {
-      console.error('Failed to load matches', e);
-    } finally {
-      setLoading(false);
-    }
+    setPeer(null);
+    setCallId(null);
   }, []);
 
   useEffect(() => {
-    loadMatches();
-  }, [loadMatches]);
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 768px)');
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  const ensureLocalStream = useCallback(async () => {
+    if (localStreamRef.current) {
+      if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
+      return localStreamRef.current;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localStreamRef.current = stream;
+    if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+    return stream;
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('incoming-call', (data) => {
-      if (testMode === 'timeout') return; // simulate: never accept
-      setIncomingCall({ callId: data.callId, callerId: data.callerId, callerName: data.callerName });
-      setCallState('incoming');
-    });
-    socket.on('call-request-sent', () => {
-      setCallState('calling');
-      setConnectionStatus('Ringing...');
-    });
     socket.on('call-accepted', () => {
       setCallState('connecting');
       setConnectionStatus('Connecting...');
     });
     socket.on('call-rejected', (data) => {
       setErrorMessage(data?.reason || 'Call rejected');
-      setCallState('rejected');
+      setCallState('ended');
       cleanup();
+      onExit?.();
     });
     socket.on('call-timeout', () => {
       setErrorMessage('Call timed out');
       setCallState('ended');
       cleanup();
+      onExit?.();
     });
     socket.on('call-ended', (data) => {
       setErrorMessage(data?.reason === 'disconnected' ? 'Call ended' : data?.reason || 'Call ended');
       setCallState('ended');
       cleanup();
-    });
-    socket.on('chat-message', (data) => {
-      setMessages((prev) => [...prev, { from: data.fromUserId, text: data.text }]);
+      onExit?.();
     });
     socket.on('error', (data) => {
       setErrorMessage(data?.message || 'Error');
     });
 
     return () => {
-      socket.off('incoming-call');
-      socket.off('call-request-sent');
       socket.off('call-accepted');
       socket.off('call-rejected');
       socket.off('call-timeout');
       socket.off('call-ended');
-      socket.off('chat-message');
       socket.off('error');
     };
-  }, [socket, cleanup, testMode]);
+  }, [socket, cleanup, onExit]);
 
-  // WebRTC signaling
   useEffect(() => {
-    if (!socket || callState !== 'connecting' && callState !== 'connected') return;
+    if (!socket || (callState !== 'connecting' && callState !== 'connected')) return;
 
     const pc = new RTCPeerConnection(getIceServers());
 
@@ -197,245 +192,80 @@ function VideoChat({ currentUser }) {
       socket.off('webrtc-answer');
       socket.off('webrtc-ice');
     };
-  }, [socket, callState, selectedMatch, incomingCall, testMode, cleanup]);
+  }, [socket, callState, cleanup, testMode]);
 
-  const requestMediaThenCall = useCallback(
-    async (match) => {
-      setErrorMessage('');
-      setSelectedMatch(match);
-      isCallerRef.current = true;
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localStreamRef.current = stream;
-        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-        if (!socket) {
-          setErrorMessage('Not connected. Try again.');
-          return;
-        }
-        socket.emit('call-request', {
-          receiverId: match.id,
-          callerName: currentUser?.name || 'Someone',
-        });
-      } catch (e) {
+  useEffect(() => {
+    if (!encounterMatch || !socket || callState !== 'idle') return;
+    const { peerId, peerName, shouldOffer, callId: matchCallId } = encounterMatch;
+    setPeer({ id: peerId, name: peerName });
+    setCallId(matchCallId || null);
+    isCallerRef.current = shouldOffer;
+    setErrorMessage('');
+    ensureLocalStream()
+      .then(() => {
+        setCallState('connecting');
+        setConnectionStatus('Connecting...');
+      })
+      .catch(() => {
         setErrorMessage('Camera/microphone access needed');
-        setSelectedMatch(null);
-        isCallerRef.current = false;
-      }
-    },
-    [socket, currentUser]
-  );
-
-  const acceptCall = useCallback(async () => {
-    if (!incomingCall || !socket) return;
-    isCallerRef.current = false;
-    setSelectedMatch({ id: incomingCall.callerId, name: incomingCall.callerName });
-    setCallState('connecting');
-    setConnectionStatus('Connecting...');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-      socket.emit('call-accept', {
-        callId: incomingCall.callId,
-        callerId: incomingCall.callerId,
+      })
+      .finally(() => {
+        onConsumeEncounterMatch?.();
       });
-      setIncomingCall(null);
-    } catch (e) {
-      setErrorMessage('Camera/microphone access needed');
-      socket.emit('call-reject', { callId: incomingCall.callId, callerId: incomingCall.callerId });
-      setIncomingCall(null);
-      setCallState('idle');
-    }
-  }, [incomingCall, socket]);
-
-  const rejectCall = useCallback(() => {
-    if (!incomingCall || !socket) return;
-    socket.emit('call-reject', { callId: incomingCall.callId, callerId: incomingCall.callerId });
-    setIncomingCall(null);
-    setCallState('idle');
-  }, [incomingCall, socket]);
+  }, [encounterMatch, socket, callState, ensureLocalStream, onConsumeEncounterMatch]);
 
   const endCall = useCallback(() => {
-    if (socket) socket.emit('disconnect-call', {});
+    if (socket) socket.emit('disconnect-call', { callId });
     cleanup();
-  }, [socket, cleanup]);
+    onExit?.();
+  }, [socket, cleanup, onExit, callId]);
 
-  // Test mode: auto-disconnect after 3s when connected
   useEffect(() => {
     if (testMode !== 'disconnect' || callState !== 'connected') return;
     const t = setTimeout(() => endCall(), 3000);
     return () => clearTimeout(t);
   }, [testMode, callState, endCall]);
 
-  const sendChat = useCallback(
-    (text) => {
-      if (!socket || !text.trim()) return;
-      socket.emit('chat-message', { text: text.trim() });
-      setMessages((prev) => [...prev, { from: currentUser?.id, text: text.trim() }]);
-    },
-    [socket, currentUser]
-  );
-
-  if (loading) {
-    return <div className="video-loading">Loading your matches...</div>;
-  }
-
-  if (mutualMatches.length === 0) {
+  if (!socketConnected) {
     return (
-      <div className="video-empty-state">
-        <h2>No mutual matches yet</h2>
-        <p>Keep swiping to find connections!</p>
+      <div className="video-shell">
+        <p className="muted">Connecting to network...</p>
       </div>
     );
   }
 
-  // Incoming call overlay
-  if (callState === 'incoming' && incomingCall) {
+  if (callState === 'idle') {
     return (
-      <div className="video-incoming-overlay">
-        <div className="video-incoming-card">
-          <p className="video-incoming-label">Incoming call from</p>
-          <h3>{incomingCall.callerName}</h3>
-          <div className="video-incoming-actions">
-            <button type="button" className="btn-accept-call" onClick={acceptCall}>
-              Accept
-            </button>
-            <button type="button" className="btn-reject-call" onClick={rejectCall}>
-              Reject
-            </button>
-          </div>
-        </div>
+      <div className="video-shell">
+        <p className="muted">Waiting for a connection...</p>
+        {errorMessage && <div className="video-error-toast">{errorMessage}</div>}
       </div>
     );
   }
 
-  // Active call view: left = videos (local top, remote bottom), right = chat
-  if (callState === 'calling' || callState === 'connecting' || callState === 'connected') {
-    return (
-      <ActiveCallView
-        localVideoRef={localVideoRef}
-        remoteVideoRef={remoteVideoRef}
-        selectedMatch={selectedMatch}
-        currentUser={currentUser}
-        connectionStatus={connectionStatus}
-        callState={callState}
-        messages={messages}
-        sendChat={sendChat}
-        endCall={endCall}
-        errorMessage={errorMessage}
-      />
-    );
-  }
-
-  // Idle: match list with Start and connection status
   return (
-    <div className="video-chat-container">
-      <div className="video-status-bar">
-        <span className={`video-connection-dot ${socketConnected ? 'connected' : 'disconnected'}`} />
-        {socketConnected ? 'Connected' : 'Connecting...'}
-      </div>
-      <h2>Your Mutual Matches</h2>
-      <p className="subtitle">Start a video call with anyone you&apos;ve matched with</p>
-      {(callState === 'rejected' || callState === 'ended') && errorMessage && (
-        <div className="video-error-toast">{errorMessage}</div>
-      )}
-      {testMode && (
-        <div className="video-test-banner">
-          Test mode: <code>{testMode}</code> (ice_failure | timeout | disconnect)
-        </div>
-      )}
-      <div className="matches-grid">
-        {mutualMatches.map((match) => (
-          <div key={match.id} className="match-card">
-            <img src={match.photos?.[0] || match.photo} alt={match.name} />
-            <div className="match-info">
-              <h3>{match.name}</h3>
-              <p className="match-bio">{match.about || match.bio || ''}</p>
-              <button
-                type="button"
-                className="btn-video-call"
-                onClick={() => requestMediaThenCall(match)}
-                disabled={!socketConnected}
-              >
-                Start
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Split active call into a sub-component so we can use useState for chat input
-function ActiveCallView({
-  localVideoRef,
-  remoteVideoRef,
-  selectedMatch,
-  currentUser,
-  connectionStatus,
-  callState,
-  messages,
-  sendChat,
-  endCall,
-  errorMessage,
-}) {
-  const [chatInput, setChatInput] = useState('');
-  return (
-    <div className="video-active-layout">
-      <div className="video-active-left">
-        <div className="video-stack">
-          <div className="video-window video-local">
-            <video ref={localVideoRef} autoPlay muted playsInline />
-            <span className="video-label">You</span>
-          </div>
-          <div className="video-window video-remote">
-            <video ref={remoteVideoRef} autoPlay playsInline />
-            <span className="video-label">{selectedMatch?.name || 'Remote'}</span>
+    <div className="video-shell">
+      <div className={`video-vertical ${isMobile ? 'mobile' : ''}`}>
+        <div className="video-remote-pane">
+          <video ref={remoteVideoRef} autoPlay playsInline className="video-remote" />
+          <div className="video-overlay">
+            <span className="muted">{peer?.name || 'Remote user'}</span>
           </div>
         </div>
-        <div className="video-controls-bar">
-          <span className={`video-status video-status-${callState}`}>{connectionStatus || callState}</span>
-          <button type="button" className="btn-end-call" onClick={endCall}>
-            End
-          </button>
+        <div className="video-local-pane">
+          <video ref={localVideoRef} autoPlay muted playsInline className="video-local" />
+          <span className="muted">You</span>
         </div>
       </div>
-      <div className="video-active-right">
-        <div className="video-chat-messages">
-          {messages.map((m, i) => (
-            <div key={i} className={m.from === currentUser?.id ? 'chat-msg self' : 'chat-msg'}>
-              {m.text}
-            </div>
-          ))}
-        </div>
-        <div className="video-chat-input-wrap">
-          <input
-            type="text"
-            className="video-chat-input"
-            placeholder="Type a message..."
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                sendChat(chatInput);
-                setChatInput('');
-              }
-            }}
-          />
-          <button type="button" className="btn-send-chat" onClick={() => { sendChat(chatInput); setChatInput(''); }}>
-            Send
-          </button>
-        </div>
+      <div className="video-controls-stack">
+        <span className="connection-text">{connectionStatus || callState}</span>
+        <button type="button" className="btn-end-call" onClick={endCall}>
+          End
+        </button>
       </div>
       {errorMessage && <div className="video-error-toast">{errorMessage}</div>}
     </div>
   );
-};
-export default VideoChat;
+}
 
-// Re-read the component - I had started to return the active layout inline with useState inside the same component which is invalid. I'll refactor so that when we're in calling/connecting/connected we return <ActiveCallView ... /> and ActiveCallView holds the chat input state.
-// </think>
-// Refactoring VideoChat: moving the active-call UI into ActiveCallView and fixing the duplicate return.
-// <｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
-// StrReplace
+export default VideoChat;
