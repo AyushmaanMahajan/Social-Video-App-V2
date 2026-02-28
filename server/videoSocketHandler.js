@@ -22,6 +22,8 @@ const userSockets = new Map();
 
 /** Encounter presence: userId -> { requestedUserId, ready, timer, socketId } */
 const userInEncounter = new Map();
+/** Pair keys currently being matched to avoid duplicate call creation */
+const matchingEncounterPairs = new Set();
 
 function addUserSocket(userId, socketId) {
   const numericUserId = Number(userId);
@@ -146,6 +148,11 @@ function normalizePair(a, b) {
   return [userA, userB];
 }
 
+function pairKey(a, b) {
+  const [userA, userB] = normalizePair(a, b);
+  return `${userA}:${userB}`;
+}
+
 async function upsertInteractionStatus(userAId, userBId, status) {
   const [userA, userB] = normalizePair(userAId, userBId);
   try {
@@ -188,38 +195,45 @@ async function getUserNames(userIds = []) {
 
 async function emitEncounterMatch(videoNs, userAId, userBId) {
   if (userInCall.has(userAId) || userInCall.has(userBId)) return;
+  const key = pairKey(userAId, userBId);
+  if (matchingEncounterPairs.has(key)) return;
+  matchingEncounterPairs.add(key);
 
-  let callRecord;
   try {
-    callRecord = await createCallAttempt(userAId, userBId);
-  } catch (e) {
-    console.error('video_calls create (encounter) error', e);
-    return;
+    let callRecord;
+    try {
+      callRecord = await createCallAttempt(userAId, userBId);
+    } catch (e) {
+      console.error('video_calls create (encounter) error', e);
+      return;
+    }
+    if (!callRecord) return;
+
+    userInCall.set(userAId, { peerId: userBId, callId: callRecord.id, timeoutId: null });
+    userInCall.set(userBId, { peerId: userAId, callId: callRecord.id, timeoutId: null });
+    startCallTimeout(videoNs, userAId, userBId, callRecord.id);
+
+    const names = await getUserNames([userAId, userBId]);
+    const offererIsA = userAId < userBId;
+
+    videoNs.to(`user:${userAId}`).emit('encounter-match', {
+      callId: callRecord.id,
+      peerId: userBId,
+      peerName: names.get(userBId) || 'Someone',
+      shouldOffer: offererIsA,
+    });
+    videoNs.to(`user:${userBId}`).emit('encounter-match', {
+      callId: callRecord.id,
+      peerId: userAId,
+      peerName: names.get(userAId) || 'Someone',
+      shouldOffer: !offererIsA,
+    });
+
+    clearEncounterState(userAId);
+    clearEncounterState(userBId);
+  } finally {
+    matchingEncounterPairs.delete(key);
   }
-  if (!callRecord) return;
-
-  userInCall.set(userAId, { peerId: userBId, callId: callRecord.id, timeoutId: null });
-  userInCall.set(userBId, { peerId: userAId, callId: callRecord.id, timeoutId: null });
-  startCallTimeout(videoNs, userAId, userBId, callRecord.id);
-
-  const names = await getUserNames([userAId, userBId]);
-  const offererIsA = userAId < userBId;
-
-  videoNs.to(`user:${userAId}`).emit('encounter-match', {
-    callId: callRecord.id,
-    peerId: userBId,
-    peerName: names.get(userBId) || 'Someone',
-    shouldOffer: offererIsA,
-  });
-  videoNs.to(`user:${userBId}`).emit('encounter-match', {
-    callId: callRecord.id,
-    peerId: userAId,
-    peerName: names.get(userAId) || 'Someone',
-    shouldOffer: !offererIsA,
-  });
-
-  clearEncounterState(userAId);
-  clearEncounterState(userBId);
 }
 
 function registerVideoNamespace(io) {
