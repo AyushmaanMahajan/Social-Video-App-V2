@@ -32,6 +32,7 @@ function VideoChat({
   const pendingCandidatesRef = useRef([]);
   const connectedConfirmedRef = useRef(false);
   const terminalIceFailureReportedRef = useRef(false);
+  const disconnectedTimerRef = useRef(null);
 
   const testMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('videoTest');
   const emitDiagnostic = useCallback((stage, status, message, meta = null, explicitCallId = null) => {
@@ -47,6 +48,10 @@ function VideoChat({
   }, [socket, callId]);
 
   const cleanup = useCallback(() => {
+    if (disconnectedTimerRef.current) {
+      clearTimeout(disconnectedTimerRef.current);
+      disconnectedTimerRef.current = null;
+    }
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
@@ -165,7 +170,11 @@ function VideoChat({
       const state = pc.iceConnectionState;
       setConnectionStatus(state);
       emitDiagnostic('ice_state', 'info', `ICE state changed: ${state}`);
-      if (state === 'connected') {
+      if (state === 'connected' || state === 'completed') {
+        if (disconnectedTimerRef.current) {
+          clearTimeout(disconnectedTimerRef.current);
+          disconnectedTimerRef.current = null;
+        }
         setCallState('connected');
         if (!connectedConfirmedRef.current) {
           connectedConfirmedRef.current = true;
@@ -174,9 +183,28 @@ function VideoChat({
         }
         return;
       }
-      if (state === 'failed' || state === 'disconnected') {
+      if (state === 'disconnected') {
+        if (disconnectedTimerRef.current) return;
+        emitDiagnostic('ice_state', 'warn', 'ICE disconnected; waiting before failure');
+        disconnectedTimerRef.current = setTimeout(() => {
+          disconnectedTimerRef.current = null;
+          const currentState = pc.iceConnectionState;
+          if (currentState !== 'disconnected' && currentState !== 'failed') return;
+          if (terminalIceFailureReportedRef.current) return;
+          terminalIceFailureReportedRef.current = true;
+          emitDiagnostic('ice_state', 'fail', `ICE remained in terminal state: ${currentState}`);
+          socket.emit('ice-failure', { forceTurn, iceConnectionState: currentState });
+          cleanup();
+        }, 20000);
+        return;
+      }
+      if (state === 'failed') {
         if (terminalIceFailureReportedRef.current) return;
         terminalIceFailureReportedRef.current = true;
+        if (disconnectedTimerRef.current) {
+          clearTimeout(disconnectedTimerRef.current);
+          disconnectedTimerRef.current = null;
+        }
         emitDiagnostic('ice_state', 'fail', `ICE entered terminal state: ${state}`);
         socket.emit('ice-failure', { forceTurn, iceConnectionState: state });
         cleanup();
