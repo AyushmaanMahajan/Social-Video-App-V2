@@ -84,4 +84,11 @@ export const getChatStatus = async (targetUserId) => {
   return data;
 };
 
+export const getMessages = async (targetUserId, encounterId) => {
+  const params = { targetUserId };
+  if (encounterId) params.encounterId = encounterId;
+  const { data } = await axios.get('/api/interactions/messages', { params });
+  return data?.messages || [];
+};
+
 export { getToken, setToken, removeToken };

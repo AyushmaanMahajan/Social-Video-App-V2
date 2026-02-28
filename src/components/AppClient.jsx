@@ -8,6 +8,7 @@ import EditProfileModal from './EditProfileModal';
 import Encounter from './Encounter';
 import Interactions from './Interactions';
 import { useVideoSocket } from '@/lib/useVideoSocket';
+import VideoChat from './VideoChat';
 
 const NAV_ITEMS = [
   { id: 'encounter', label: 'Encounter' },
@@ -20,6 +21,9 @@ export default function AppClient() {
   const [currentPage, setCurrentPage] = useState('encounter');
   const [showSettings, setShowSettings] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [activeEncounterMatch, setActiveEncounterMatch] = useState(null);
+  const [videoActive, setVideoActive] = useState(false);
+  const [lastPageBeforeCall, setLastPageBeforeCall] = useState('encounter');
   const { socket, connected: socketConnected } = useVideoSocket();
 
   useEffect(() => {
@@ -82,16 +86,23 @@ export default function AppClient() {
       <main className="app-main">
         {!currentUser && <ProfileForm onProfileCreated={handleProfileCreated} />}
 
-        {currentUser && currentPage === 'encounter' && (
+        {currentUser && currentPage === 'encounter' && !videoActive && (
           <Encounter
             socket={socket}
             socketConnected={socketConnected}
-            currentUser={currentUser}
+            onEncounterMatch={(payload) => {
+              setActiveEncounterMatch(payload);
+              setLastPageBeforeCall(currentPage);
+              setVideoActive(true);
+            }}
           />
         )}
 
         {currentUser && currentPage === 'interactions' && (
-          <Interactions socket={socket} socketConnected={socketConnected} />
+          <Interactions
+            socket={socket}
+            socketConnected={socketConnected}
+          />
         )}
 
         {currentUser && currentPage === 'profile' && <UserProfile currentUser={currentUser} />}
@@ -113,6 +124,23 @@ export default function AppClient() {
           onClose={() => setShowEditProfile(false)}
           onSave={handleSaveProfile}
         />
+      )}
+
+      {currentUser && videoActive && (
+        <div className={`video-host ${currentPage !== 'encounter' ? 'floating' : 'full'}`}>
+          <VideoChat
+            socket={socket}
+            socketConnected={socketConnected}
+            encounterMatch={activeEncounterMatch}
+            onConsumeEncounterMatch={() => setActiveEncounterMatch(null)}
+            onExit={() => {
+              setVideoActive(false);
+              setActiveEncounterMatch(null);
+              setCurrentPage(lastPageBeforeCall || 'encounter');
+            }}
+            layoutMode={currentPage !== 'encounter' ? 'floating' : 'full'}
+          />
+        </div>
       )}
     </div>
   );

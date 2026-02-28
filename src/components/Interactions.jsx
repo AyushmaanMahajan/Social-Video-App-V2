@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { getInteractions, toggleChat, getChatStatus } from '@/lib/api';
+import { getInteractions, toggleChat, getChatStatus, getMessages } from '@/lib/api';
 
 function StatusBadge({ status }) {
   const label = status === 'connected' ? 'Connected' : status === 'skipped' ? 'Skipped' : 'Missed';
@@ -18,6 +18,7 @@ export default function Interactions({ socket, socketConnected }) {
   const [waitingMessage, setWaitingMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   const load = async () => {
     try {
@@ -35,29 +36,47 @@ export default function Interactions({ socket, socketConnected }) {
   }, [search]);
 
   const selectedId = selected?.otherUserId;
+  const selectedEncounterId = selected?.id || null;
 
   useEffect(() => {
     let active = true;
     if (!selectedId) return () => {};
-    getChatStatus(selectedId)
-      .then((res) => {
+    setLoadingMessages(true);
+    Promise.all([
+      getChatStatus(selectedId),
+      getMessages(selectedId, selectedEncounterId),
+    ])
+      .then(([statusRes, history]) => {
         if (!active) return;
-        if (res.mutual) {
+        if (statusRes.mutual) {
           setChatEnabled(true);
           setWaitingMessage('');
         } else {
           setChatEnabled(false);
           setWaitingMessage('Waiting for the other user to enable chat.');
         }
+        const mapped = (history || []).map((m) => ({
+          id: m.id,
+          from: m.sender_id === selectedId ? 'them' : 'me',
+          text: m.message_text,
+          createdAt: m.created_at,
+        }));
+        setMessages(mapped);
       })
       .catch(() => {
-        if (active) setWaitingMessage('Could not load chat status.');
+        if (active) {
+          setWaitingMessage('Could not load chat status.');
+          setMessages([]);
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingMessages(false);
       });
     return () => {
       active = false;
       setMessages([]);
     };
-  }, [selectedId]);
+  }, [selectedId, selectedEncounterId]);
 
   useEffect(() => {
     if (!socket) return () => {};
@@ -67,23 +86,44 @@ export default function Interactions({ socket, socketConnected }) {
         setWaitingMessage('');
       }
     };
+    const handleLocked = (payload) => {
+      if (payload?.peerId === selectedId) {
+        setChatEnabled(false);
+        setWaitingMessage('Both users must enable chat.');
+      }
+    };
     const handleChat = (payload) => {
-      if (!payload || payload.fromUserId !== selectedId) return;
-      setMessages((prev) => [...prev, { from: 'them', text: payload.text }]);
+      if (!payload) return;
+      const { fromUserId, toUserId } = payload;
+      if (fromUserId !== selectedId && toUserId !== selectedId) return;
+      const direction = fromUserId === selectedId ? 'them' : 'me';
+      setMessages((prev) => {
+        if (payload.id && prev.some((m) => m.id === payload.id)) return prev;
+        return [
+          ...prev,
+          {
+            id: payload.id || `local-${Date.now()}`,
+            from: direction,
+            text: payload.text,
+            createdAt: payload.createdAt || new Date().toISOString(),
+          },
+        ];
+      });
     };
     socket.on('chat-unlocked', handleUnlocked);
+    socket.on('chat-locked', handleLocked);
     socket.on('chat-message', handleChat);
     return () => {
       socket.off('chat-unlocked', handleUnlocked);
+      socket.off('chat-locked', handleLocked);
       socket.off('chat-message', handleChat);
     };
   }, [socket, selectedId]);
 
   const sendMessage = () => {
-    if (!input.trim() || !socket || !selectedId || !chatEnabled) return;
+    if (!input.trim() || !socket || !selectedId || !chatEnabled || !socketConnected) return;
     const text = input.trim();
-    socket.emit('chat-message', { targetUserId: selectedId, text });
-    setMessages((prev) => [...prev, { from: 'me', text }]);
+    socket.emit('chat-message', { targetUserId: selectedId, text, encounterId: selectedEncounterId });
     setInput('');
   };
 
@@ -129,7 +169,7 @@ export default function Interactions({ socket, socketConnected }) {
 
       <div className="interactions-body">
         <div className="interactions-list">
-          {filteredItems.map((item) => (
+      {filteredItems.map((item) => (
             <button
               type="button"
               key={item.id}
@@ -177,18 +217,20 @@ export default function Interactions({ socket, socketConnected }) {
               </div>
 
               <div className="chat-window">
-                <div className="chat-messages">
-                  {messages.map((m, idx) => (
-                    <div key={idx} className={`chat-bubble ${m.from === 'me' ? 'self' : 'peer'}`}>
+              <div className="chat-messages">
+                {loadingMessages && <div className="chat-placeholder">Loading conversation...</div>}
+                {!loadingMessages &&
+                  messages.map((m) => (
+                    <div key={m.id} className={`chat-bubble ${m.from === 'me' ? 'self' : 'peer'}`}>
                       {m.text}
                     </div>
                   ))}
-                  {messages.length === 0 && (
-                    <div className="chat-placeholder">
-                      {chatEnabled ? 'Chat is unlocked. Say hello.' : waitingMessage || 'Enable chat to begin.'}
-                    </div>
-                  )}
-                </div>
+                {!loadingMessages && messages.length === 0 && (
+                  <div className="chat-placeholder">
+                    {chatEnabled ? 'Chat is unlocked. Say hello.' : waitingMessage || 'Enable chat to begin.'}
+                  </div>
+                )}
+              </div>
                 <div className="chat-input">
                   <input
                     type="text"

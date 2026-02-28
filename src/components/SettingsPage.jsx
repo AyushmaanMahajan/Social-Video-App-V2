@@ -16,7 +16,14 @@ function SettingsPage({ onEditProfile, onClose }) {
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Settings</h2>
-          <button className="modal-close" onClick={onClose}>Close</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M18.3 5.7a1 1 0 0 0-1.4-1.4L12 9.17 7.1 4.3a1 1 0 0 0-1.4 1.4L10.83 12l-5.13 5.1a1 1 0 1 0 1.4 1.4L12 14.83l4.9 4.87a1 1 0 0 0 1.4-1.4L13.17 12l5.13-5.1Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
         </div>
 
         <div className="settings-content">

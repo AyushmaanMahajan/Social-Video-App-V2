@@ -5,12 +5,12 @@ import { useVideoSocket } from '@/lib/useVideoSocket';
 import { getIceServers } from '@/lib/webrtcConfig';
 
 function VideoChat({
-  currentUser,
   socket: externalSocket,
   socketConnected: externalConnected,
   encounterMatch,
   onConsumeEncounterMatch,
   onExit,
+  layoutMode = 'full',
 }) {
   const { socket: hookSocket, connected: hookConnected } = useVideoSocket(!externalSocket);
   const socket = externalSocket || hookSocket;
@@ -345,17 +345,21 @@ function VideoChat({
   }
 
   return (
-    <div className="video-shell">
+    <div className={`video-shell ${layoutMode === 'floating' ? 'floating' : 'full'}`}>
       <div className={`video-vertical ${isMobile ? 'mobile' : ''}`}>
         <div className="video-remote-pane">
-          <video ref={remoteVideoRef} autoPlay playsInline className="video-remote" />
-          <div className="video-overlay">
-            <span className="muted">{peer?.name || 'Remote user'}</span>
+          <div className="video-frame remote">
+            <video ref={remoteVideoRef} autoPlay playsInline className="video-remote" />
+            <div className="video-overlay">
+              <span className="muted">{peer?.name || 'Remote user'}</span>
+            </div>
           </div>
         </div>
         <div className="video-local-pane">
-          <video ref={localVideoRef} autoPlay muted playsInline className="video-local" />
-          <span className="muted">You</span>
+          <div className="video-frame local">
+            <video ref={localVideoRef} autoPlay muted playsInline className="video-local" />
+          </div>
+          <span className="video-self-label muted">You</span>
         </div>
       </div>
       <div className="video-controls-stack">

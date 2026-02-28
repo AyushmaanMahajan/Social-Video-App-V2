@@ -183,6 +183,18 @@ async function isChatMutual(userId, targetUserId) {
   return row.me_enabled && row.them_enabled;
 }
 
+async function persistEncounterMessage(senderId, receiverId, encounterId, messageText) {
+  const res = await pool.query(
+    `
+    INSERT INTO encounter_messages (sender_id, receiver_id, encounter_id, message_text)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, created_at
+    `,
+    [senderId, receiverId, encounterId || null, messageText]
+  );
+  return res.rows[0] || null;
+}
+
 async function getUserNames(userIds = []) {
   if (!userIds.length) return new Map();
   const res = await pool.query('SELECT id, name FROM users WHERE id = ANY($1)', [userIds]);
@@ -523,13 +535,35 @@ function registerVideoNamespace(io) {
     });
 
     socket.on('chat-message', async (payload) => {
-      const { targetUserId, text } = payload || {};
-      if (!targetUserId || !text) return;
-      const allowed = await isChatMutual(userId, Number(targetUserId));
+      const { targetUserId, text, encounterId } = payload || {};
+      if (!targetUserId || typeof text !== 'string') return;
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const numericTarget = Number(targetUserId);
+      const normalizedEncounterId =
+        encounterId !== undefined && encounterId !== null && Number.isFinite(Number(encounterId))
+          ? Number(encounterId)
+          : null;
+      const allowed = await isChatMutual(userId, numericTarget);
       if (!allowed) {
-        return socket.emit('error', { message: 'Chat not unlocked' });
+        return socket.emit('chat-locked', { peerId: numericTarget });
       }
-      videoNs.to(`user:${targetUserId}`).emit('chat-message', { fromUserId: userId, text });
+      let saved = null;
+      try {
+        saved = await persistEncounterMessage(userId, numericTarget, normalizedEncounterId, trimmed);
+      } catch (e) {
+        console.error('chat-message persist error', e);
+      }
+      const outbound = {
+        id: saved?.id || null,
+        fromUserId: userId,
+        toUserId: numericTarget,
+        text: trimmed,
+        encounterId: normalizedEncounterId,
+        createdAt: saved?.created_at || new Date().toISOString(),
+      };
+      videoNs.to(`user:${numericTarget}`).emit('chat-message', outbound);
+      socket.emit('chat-message', outbound);
     });
 
     socket.on('chat-toggle', async (payload) => {
