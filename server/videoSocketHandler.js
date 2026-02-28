@@ -17,8 +17,31 @@ const userInCall = new Map();
 /** Socket id -> userId for lookup */
 const socketToUserId = new Map();
 
+/** userId -> Set<socketId> */
+const userSockets = new Map();
+
 /** Encounter presence: userId -> { requestedUserId, ready, timer, socketId } */
 const userInEncounter = new Map();
+
+function addUserSocket(userId, socketId) {
+  const numericUserId = Number(userId);
+  const current = userSockets.get(numericUserId) || new Set();
+  current.add(socketId);
+  userSockets.set(numericUserId, current);
+}
+
+function removeUserSocket(userId, socketId) {
+  const numericUserId = Number(userId);
+  const current = userSockets.get(numericUserId);
+  if (!current) return 0;
+  current.delete(socketId);
+  if (current.size === 0) {
+    userSockets.delete(numericUserId);
+    return 0;
+  }
+  userSockets.set(numericUserId, current);
+  return current.size;
+}
 
 function getUserId(socket) {
   const token = socket.handshake.auth?.token;
@@ -241,6 +264,15 @@ function registerVideoNamespace(io) {
   videoNs.on('connection', (socket) => {
     const userId = socket.userId;
     socket.join(`user:${userId}`);
+    addUserSocket(userId, socket.id);
+    logVideoStage({
+      stage: 'socket_presence',
+      status: 'info',
+      message: 'Socket connected for user presence.',
+      socketId: socket.id,
+      userId,
+      meta: { activeSockets: userSockets.get(Number(userId))?.size || 0 },
+    });
 
     socket.on('encounter-ready', () => {
       if (userInCall.has(userId)) {
@@ -536,6 +568,16 @@ function registerVideoNamespace(io) {
 
     socket.on('disconnect', () => {
       socketToUserId.delete(socket.id);
+      const remainingSockets = removeUserSocket(userId, socket.id);
+      logVideoStage({
+        stage: 'socket_presence',
+        status: 'info',
+        message: 'Socket disconnected for user presence.',
+        socketId: socket.id,
+        userId,
+        meta: { activeSockets: remainingSockets },
+      });
+      if (remainingSockets > 0) return;
       const my = userInCall.get(userId);
       if (my) {
         clearCallStateForPair(userId, my.peerId);
