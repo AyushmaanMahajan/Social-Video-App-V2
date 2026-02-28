@@ -22,6 +22,7 @@ function VideoChat({
   const [isMobile, setIsMobile] = useState(false);
   const [peer, setPeer] = useState(null);
   const [callId, setCallId] = useState(null);
+  const [forceTurn, setForceTurn] = useState(false);
 
   const isCallerRef = useRef(false);
   const localVideoRef = useRef(null);
@@ -29,8 +30,21 @@ function VideoChat({
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
+  const connectedConfirmedRef = useRef(false);
+  const terminalIceFailureReportedRef = useRef(false);
 
   const testMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('videoTest');
+  const emitDiagnostic = useCallback((stage, status, message, meta = null, explicitCallId = null) => {
+    console.log(`[video:${stage}:${status}] ${message}`, meta || {});
+    if (!socket) return;
+    socket.emit('client-diagnostic', {
+      stage,
+      status,
+      message,
+      callId: explicitCallId || callId || null,
+      meta,
+    });
+  }, [socket, callId]);
 
   const cleanup = useCallback(() => {
     if (peerConnectionRef.current) {
@@ -42,10 +56,13 @@ function VideoChat({
       localStreamRef.current = null;
     }
     pendingCandidatesRef.current = [];
+    connectedConfirmedRef.current = false;
+    terminalIceFailureReportedRef.current = false;
     setConnectionStatus('');
     setCallState('idle');
     setPeer(null);
     setCallId(null);
+    setForceTurn(false);
   }, []);
 
   useEffect(() => {
@@ -62,16 +79,27 @@ function VideoChat({
       if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
       return localStreamRef.current;
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localStreamRef.current = stream;
-    if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-    return stream;
-  }, []);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      emitDiagnostic('get_user_media', 'ok', 'getUserMedia success');
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      return stream;
+    } catch (error) {
+      console.error('getUserMedia error:', error);
+      emitDiagnostic('get_user_media', 'fail', 'getUserMedia failed', {
+        name: error?.name,
+        message: error?.message,
+      });
+      throw error;
+    }
+  }, [emitDiagnostic]);
 
   useEffect(() => {
     if (!socket) return;
 
     socket.on('call-accepted', () => {
+      emitDiagnostic('call-accept', 'ok', 'call-accepted received from server');
       setCallState('connecting');
       setConnectionStatus('Connecting...');
     });
@@ -88,12 +116,14 @@ function VideoChat({
       onExit?.();
     });
     socket.on('call-ended', (data) => {
+      emitDiagnostic('call-accept', 'fail', 'call-ended received', data || null);
       setErrorMessage(data?.reason === 'disconnected' ? 'Call ended' : data?.reason || 'Call ended');
       setCallState('ended');
       cleanup();
       onExit?.();
     });
     socket.on('error', (data) => {
+      emitDiagnostic('client_event', 'fail', 'Socket error event', data || null);
       setErrorMessage(data?.message || 'Error');
     });
 
@@ -104,12 +134,17 @@ function VideoChat({
       socket.off('call-ended');
       socket.off('error');
     };
-  }, [socket, cleanup, onExit]);
+  }, [socket, cleanup, onExit, emitDiagnostic]);
 
   useEffect(() => {
     if (!socket || (callState !== 'connecting' && callState !== 'connected')) return;
 
-    const pc = new RTCPeerConnection(getIceServers());
+    const pc = new RTCPeerConnection(getIceServers({ forceTurn }));
+    emitDiagnostic(
+      'ice_state',
+      'info',
+      forceTurn ? 'PeerConnection created with TURN fallback' : 'PeerConnection created with default ICE servers'
+    );
 
     if (testMode === 'ice_failure') {
       pc.close();
@@ -121,15 +156,31 @@ function VideoChat({
     }
 
     pc.onicecandidate = (e) => {
-      if (e.candidate) socket.emit('webrtc-ice', e.candidate);
+      if (e.candidate) {
+        emitDiagnostic('ice_candidate', 'ok', 'Local ICE candidate emitted');
+        socket.emit('webrtc-ice', e.candidate);
+      }
     };
     pc.oniceconnectionstatechange = () => {
-      setConnectionStatus(pc.iceConnectionState);
-      if (pc.iceConnectionState === 'failed') {
-        socket.emit('ice-failure', {});
+      const state = pc.iceConnectionState;
+      setConnectionStatus(state);
+      emitDiagnostic('ice_state', 'info', `ICE state changed: ${state}`);
+      if (state === 'connected') {
+        setCallState('connected');
+        if (!connectedConfirmedRef.current) {
+          connectedConfirmedRef.current = true;
+          emitDiagnostic('call-connected-confirmed', 'ok', 'ICE connected; notifying server');
+          socket.emit('call-connected-confirmed');
+        }
+        return;
+      }
+      if (state === 'failed' || state === 'disconnected') {
+        if (terminalIceFailureReportedRef.current) return;
+        terminalIceFailureReportedRef.current = true;
+        emitDiagnostic('ice_state', 'fail', `ICE entered terminal state: ${state}`);
+        socket.emit('ice-failure', { forceTurn, iceConnectionState: state });
         cleanup();
       }
-      if (pc.iceConnectionState === 'connected') setCallState('connected');
     };
     pc.ontrack = (e) => {
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = e.streams[0];
@@ -146,30 +197,37 @@ function VideoChat({
 
     socket.on('webrtc-offer', async (offer) => {
       try {
+        emitDiagnostic('webrtc_offer', 'ok', 'webrtc-offer received');
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        emitDiagnostic('webrtc_answer', 'ok', 'webrtc-answer emitted');
         socket.emit('webrtc-answer', answer);
         pendingCandidatesRef.current.forEach((c) => pc.addIceCandidate(c));
         pendingCandidatesRef.current = [];
       } catch (err) {
+        emitDiagnostic('webrtc_answer', 'fail', 'Failed processing webrtc-offer', { message: err?.message });
         console.error('Answer error', err);
       }
     });
     socket.on('webrtc-answer', async (answer) => {
       try {
+        emitDiagnostic('webrtc_answer', 'ok', 'webrtc-answer received');
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         pendingCandidatesRef.current.forEach((c) => pc.addIceCandidate(c));
         pendingCandidatesRef.current = [];
       } catch (err) {
+        emitDiagnostic('webrtc_answer', 'fail', 'Failed processing webrtc-answer', { message: err?.message });
         console.error('Set remote answer error', err);
       }
     });
     socket.on('webrtc-ice', async (candidate) => {
       if (pc.remoteDescription) {
         try {
+          emitDiagnostic('ice_candidate', 'ok', 'Remote ICE candidate received');
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (e) {
+          emitDiagnostic('ice_candidate', 'fail', 'Failed adding remote ICE candidate', { message: e?.message });
           console.error('Add ICE candidate error', e);
         }
       } else {
@@ -180,8 +238,12 @@ function VideoChat({
     if (isCallerRef.current) {
       pc.createOffer()
         .then((offer) => pc.setLocalDescription(offer))
-        .then(() => socket.emit('webrtc-offer', pc.localDescription))
+        .then(() => {
+          emitDiagnostic('webrtc_offer', 'ok', 'webrtc-offer emitted');
+          socket.emit('webrtc-offer', pc.localDescription);
+        })
         .catch((err) => {
+          emitDiagnostic('webrtc_offer', 'fail', 'Failed creating webrtc-offer', { message: err?.message });
           console.error('Offer error', err);
           cleanup();
         });
@@ -192,33 +254,44 @@ function VideoChat({
       socket.off('webrtc-answer');
       socket.off('webrtc-ice');
     };
-  }, [socket, callState, cleanup, testMode]);
+  }, [socket, callState, cleanup, testMode, emitDiagnostic, forceTurn]);
 
   useEffect(() => {
     if (!encounterMatch || !socket || callState !== 'idle') return;
     const { peerId, peerName, shouldOffer, callId: matchCallId } = encounterMatch;
     setPeer({ id: peerId, name: peerName });
     setCallId(matchCallId || null);
+    setForceTurn(false);
+    connectedConfirmedRef.current = false;
+    terminalIceFailureReportedRef.current = false;
     isCallerRef.current = shouldOffer;
+    emitDiagnostic('call-request', 'ok', 'Encounter match received; starting WebRTC flow', { shouldOffer }, matchCallId || null);
     setErrorMessage('');
     ensureLocalStream()
       .then(() => {
         setCallState('connecting');
         setConnectionStatus('Connecting...');
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error('getUserMedia error:', e);
+        if (socket) {
+          socket.emit('disconnect-call', {});
+        }
+        cleanup();
         setErrorMessage('Camera/microphone access needed');
+        onExit?.();
       })
       .finally(() => {
         onConsumeEncounterMatch?.();
       });
-  }, [encounterMatch, socket, callState, ensureLocalStream, onConsumeEncounterMatch]);
+  }, [encounterMatch, socket, callState, ensureLocalStream, onConsumeEncounterMatch, emitDiagnostic, cleanup, onExit]);
 
   const endCall = useCallback(() => {
+    emitDiagnostic('call-accept', 'info', 'disconnect-call emitted by client');
     if (socket) socket.emit('disconnect-call', { callId });
     cleanup();
     onExit?.();
-  }, [socket, cleanup, onExit, callId]);
+  }, [socket, cleanup, onExit, callId, emitDiagnostic]);
 
   useEffect(() => {
     if (testMode !== 'disconnect' || callState !== 'connected') return;

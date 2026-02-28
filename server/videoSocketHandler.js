@@ -5,6 +5,7 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../src/lib/db');
 const { createCallAttempt, updateCallStatus, STATUS } = require('./videoController');
+const { logVideoStage } = require('./videoDiagnostics');
 
 const VIDEO_NAMESPACE = '/video';
 const CALL_TIMEOUT_MS = 45 * 1000;
@@ -21,12 +22,13 @@ const userInEncounter = new Map();
 
 function getUserId(socket) {
   const token = socket.handshake.auth?.token;
-  if (!token) return null;
+  if (!token) return { userId: null, reason: 'missing_token' };
+  if (!process.env.JWT_SECRET) return { userId: null, reason: 'missing_jwt_secret' };
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return decoded.userId;
-  } catch {
-    return null;
+    return { userId: decoded.userId, reason: 'ok' };
+  } catch (error) {
+    return { userId: null, reason: error?.message || 'invalid_token' };
   }
 }
 
@@ -34,6 +36,85 @@ function clearEncounterState(userId) {
   const state = userInEncounter.get(userId);
   if (state?.timer) clearTimeout(state.timer);
   userInEncounter.delete(userId);
+}
+
+function clearCallTimeoutForUser(userId) {
+  const numericUserId = Number(userId);
+  const current = userInCall.get(numericUserId);
+  if (!current) return;
+  if (current.timeoutId) clearTimeout(current.timeoutId);
+  if (current.timeoutId !== null) {
+    userInCall.set(numericUserId, { ...current, timeoutId: null });
+  }
+}
+
+function clearCallTimeoutForPair(userAId, userBId) {
+  clearCallTimeoutForUser(userAId);
+  clearCallTimeoutForUser(userBId);
+}
+
+function clearCallStateForUser(userId) {
+  const numericUserId = Number(userId);
+  const current = userInCall.get(numericUserId);
+  if (current?.timeoutId) clearTimeout(current.timeoutId);
+  userInCall.delete(numericUserId);
+}
+
+function clearCallStateForPair(userAId, userBId) {
+  clearCallStateForUser(userAId);
+  clearCallStateForUser(userBId);
+}
+
+function startCallTimeout(videoNs, userAId, userBId, callId) {
+  const numericUserA = Number(userAId);
+  const numericUserB = Number(userBId);
+  const timeoutId = setTimeout(async () => {
+    try {
+      const stateA = userInCall.get(numericUserA);
+      const stateB = userInCall.get(numericUserB);
+      const isStillActive =
+        (stateA && stateA.callId === callId) ||
+        (stateB && stateB.callId === callId);
+      if (!isStillActive) return;
+
+      clearCallStateForPair(numericUserA, numericUserB);
+      await updateCallStatus(callId, STATUS.TIMEOUT, {
+        setEndedAt: true,
+        failureReason: 'timeout',
+        onlyIfNotEnded: true,
+      });
+      await upsertInteractionStatus(numericUserA, numericUserB, 'timeout');
+      logVideoStage({
+        stage: 'call-timeout',
+        status: 'fail',
+        message: 'Call timed out before ICE connected.',
+        userId: numericUserA,
+        peerId: numericUserB,
+        callId,
+      });
+      videoNs.to(`user:${numericUserA}`).emit('call-ended', { callId, reason: 'timeout' });
+      videoNs.to(`user:${numericUserB}`).emit('call-ended', { callId, reason: 'timeout' });
+    } catch (error) {
+      logVideoStage({
+        stage: 'call-timeout',
+        status: 'fail',
+        message: 'Error while processing call timeout.',
+        userId: numericUserA,
+        peerId: numericUserB,
+        callId,
+        meta: { message: error?.message || 'unknown_error' },
+      });
+    }
+  }, CALL_TIMEOUT_MS);
+
+  const stateA = userInCall.get(numericUserA);
+  if (stateA && stateA.callId === callId) {
+    userInCall.set(numericUserA, { ...stateA, timeoutId });
+  }
+  const stateB = userInCall.get(numericUserB);
+  if (stateB && stateB.callId === callId) {
+    userInCall.set(numericUserB, { ...stateB, timeoutId });
+  }
 }
 
 function normalizePair(a, b) {
@@ -96,8 +177,7 @@ async function emitEncounterMatch(videoNs, userAId, userBId) {
 
   userInCall.set(userAId, { peerId: userBId, callId: callRecord.id, timeoutId: null });
   userInCall.set(userBId, { peerId: userAId, callId: callRecord.id, timeoutId: null });
-  await updateCallStatus(callRecord.id, STATUS.CONNECTED, { setConnectedAt: true });
-  await upsertInteractionStatus(userAId, userBId, 'connected');
+  startCallTimeout(videoNs, userAId, userBId, callRecord.id);
 
   const names = await getUserNames([userAId, userBId]);
   const offererIsA = userAId < userBId;
@@ -123,10 +203,38 @@ function registerVideoNamespace(io) {
   const videoNs = io.of(VIDEO_NAMESPACE);
 
   videoNs.use((socket, next) => {
-    const userId = getUserId(socket);
-    if (!userId) return next(new Error('Unauthorized'));
-    socket.userId = userId;
-    socketToUserId.set(socket.id, userId);
+    const auth = getUserId(socket);
+    if (!auth.userId) {
+      logVideoStage({
+        stage: 'jwt_verification',
+        status: 'fail',
+        message: `Socket auth failed: ${auth.reason}`,
+        socketId: socket.id,
+      });
+      logVideoStage({
+        stage: 'socket_handshake',
+        status: 'fail',
+        message: 'Socket handshake failed.',
+        socketId: socket.id,
+      });
+      return next(new Error('Unauthorized'));
+    }
+    socket.userId = auth.userId;
+    socketToUserId.set(socket.id, auth.userId);
+    logVideoStage({
+      stage: 'jwt_verification',
+      status: 'ok',
+      message: 'Socket JWT verified.',
+      socketId: socket.id,
+      userId: auth.userId,
+    });
+    logVideoStage({
+      stage: 'socket_handshake',
+      status: 'ok',
+      message: 'Socket handshake succeeded.',
+      socketId: socket.id,
+      userId: auth.userId,
+    });
     next();
   });
 
@@ -151,6 +259,14 @@ function registerVideoNamespace(io) {
     socket.on('encounter-request', async (payload) => {
       const { targetUserId } = payload || {};
       if (!targetUserId) return socket.emit('error', { message: 'targetUserId required' });
+      logVideoStage({
+        stage: 'call-request',
+        status: 'ok',
+        message: 'Encounter request received.',
+        socketId: socket.id,
+        userId,
+        peerId: Number(targetUserId),
+      });
 
       if (userInCall.has(userId)) {
         return socket.emit('encounter-timeout', { reason: 'already_in_call' });
@@ -180,12 +296,28 @@ function registerVideoNamespace(io) {
     });
 
     socket.on('call-request', () => {
+      logVideoStage({
+        stage: 'call-request',
+        status: 'fail',
+        message: 'Direct call-request received but feature is disabled.',
+        socketId: socket.id,
+        userId,
+      });
       socket.emit('error', { message: 'Direct calls are disabled. Use Encounter.' });
     });
 
     socket.on('call-accept', async (payload) => {
       const { callId, callerId } = payload || {};
       if (!callId || !callerId) return socket.emit('error', { message: 'callId and callerId required' });
+      logVideoStage({
+        stage: 'call-accept',
+        status: 'ok',
+        message: 'call-accept received.',
+        socketId: socket.id,
+        userId,
+        peerId: Number(callerId),
+        callId,
+      });
 
       if (userInCall.has(userId)) {
         return socket.emit('error', { message: 'Already in a call' });
@@ -201,11 +333,17 @@ function registerVideoNamespace(io) {
       userInCall.set(Number(callerId), { ...callerData, peerId: userId });
       userInCall.set(userId, { peerId: callerId, callId, timeoutId: null });
 
-      await updateCallStatus(callId, STATUS.CONNECTED, { setConnectedAt: true });
-      await upsertInteractionStatus(userId, callerId, 'connected');
-
       videoNs.to(`user:${callerId}`).emit('call-accepted', { callId, receiverId: userId });
       socket.emit('call-accepted', { callId });
+      logVideoStage({
+        stage: 'call-accept',
+        status: 'ok',
+        message: 'call-accept completed.',
+        socketId: socket.id,
+        userId,
+        peerId: Number(callerId),
+        callId,
+      });
     });
 
     socket.on('call-reject', async (payload) => {
@@ -226,29 +364,116 @@ function registerVideoNamespace(io) {
       const my = userInCall.get(userId);
       if (!my) return;
       const peerId = my.peerId;
-      clearTimeout(my.timeoutId);
-      userInCall.delete(userId);
-      userInCall.delete(Number(peerId));
-      await updateCallStatus(my.callId, STATUS.CONNECTED, { setEndedAt: true });
-      videoNs.to(`user:${peerId}`).emit('call-ended', { callId: my.callId, reason: 'disconnected' });
-      socket.emit('call-ended', { callId: my.callId });
+      const activeCallId = my.callId;
+      clearCallStateForPair(userId, peerId);
+      await updateCallStatus(activeCallId, STATUS.FAILED, {
+        setEndedAt: true,
+        failureReason: 'disconnected',
+        onlyIfNotEnded: true,
+      });
+      logVideoStage({
+        stage: 'disconnect-call',
+        status: 'ok',
+        message: 'disconnect-call handled.',
+        socketId: socket.id,
+        userId,
+        peerId: Number(peerId),
+        callId: activeCallId,
+        meta: { requestedCallId: callId || null },
+      });
+      videoNs.to(`user:${peerId}`).emit('call-ended', { callId: activeCallId, reason: 'disconnected' });
+      socket.emit('call-ended', { callId: activeCallId, reason: 'disconnected' });
+    });
+
+    socket.on('call-connected-confirmed', async () => {
+      const my = userInCall.get(userId);
+      if (!my) {
+        logVideoStage({
+          stage: 'call-connected-confirmed',
+          status: 'fail',
+          message: 'call-connected-confirmed ignored; no active call session.',
+          socketId: socket.id,
+          userId,
+        });
+        return;
+      }
+
+      clearCallTimeoutForPair(userId, my.peerId);
+      const updated = await updateCallStatus(my.callId, STATUS.CONNECTED, {
+        setConnectedAt: true,
+        onlyIfNotEnded: true,
+      });
+      if (updated > 0) {
+        await upsertInteractionStatus(userId, my.peerId, 'connected');
+      }
+
+      logVideoStage({
+        stage: 'call-connected-confirmed',
+        status: updated > 0 ? 'ok' : 'fail',
+        message: updated > 0 ? 'Call marked connected after ICE confirmation.' : 'Call confirmation skipped; call already ended.',
+        socketId: socket.id,
+        userId,
+        peerId: Number(my.peerId),
+        callId: my.callId,
+      });
     });
 
     // WebRTC signaling relay
     socket.on('webrtc-offer', (payload) => {
       const my = userInCall.get(userId);
       if (!my) return;
+      logVideoStage({
+        stage: 'webrtc_offer',
+        status: 'ok',
+        message: 'Server relayed webrtc-offer.',
+        socketId: socket.id,
+        userId,
+        peerId: Number(my.peerId),
+        callId: my.callId,
+      });
       videoNs.to(`user:${my.peerId}`).emit('webrtc-offer', payload);
     });
     socket.on('webrtc-answer', (payload) => {
       const my = userInCall.get(userId);
       if (!my) return;
+      logVideoStage({
+        stage: 'webrtc_answer',
+        status: 'ok',
+        message: 'Server relayed webrtc-answer.',
+        socketId: socket.id,
+        userId,
+        peerId: Number(my.peerId),
+        callId: my.callId,
+      });
       videoNs.to(`user:${my.peerId}`).emit('webrtc-answer', payload);
     });
     socket.on('webrtc-ice', (payload) => {
       const my = userInCall.get(userId);
       if (!my) return;
+      logVideoStage({
+        stage: 'ice_candidate',
+        status: 'ok',
+        message: 'Server relayed ICE candidate.',
+        socketId: socket.id,
+        userId,
+        peerId: Number(my.peerId),
+        callId: my.callId,
+      });
       videoNs.to(`user:${my.peerId}`).emit('webrtc-ice', payload);
+    });
+
+    socket.on('client-diagnostic', (payload) => {
+      const my = userInCall.get(userId);
+      logVideoStage({
+        stage: payload?.stage || 'client_event',
+        status: payload?.status || 'info',
+        message: payload?.message || 'Client diagnostic event',
+        socketId: socket.id,
+        userId,
+        peerId: my ? Number(my.peerId) : null,
+        callId: payload?.callId || (my ? my.callId : null),
+        meta: payload?.meta || null,
+      });
     });
 
     socket.on('chat-message', async (payload) => {
@@ -288,10 +513,24 @@ function registerVideoNamespace(io) {
     socket.on('ice-failure', async (payload) => {
       const my = userInCall.get(userId);
       if (my) {
-        await updateCallStatus(my.callId, STATUS.FAILED, { setEndedAt: true, failureReason: 'ice_failure' });
-        userInCall.delete(userId);
-        userInCall.delete(Number(my.peerId));
+        logVideoStage({
+          stage: 'ice_state',
+          status: 'fail',
+          message: 'ICE failure reported by client.',
+          socketId: socket.id,
+          userId,
+          peerId: Number(my.peerId),
+          callId: my.callId,
+          meta: payload || null,
+        });
+        await updateCallStatus(my.callId, STATUS.FAILED, {
+          setEndedAt: true,
+          failureReason: 'ice_failure',
+          onlyIfNotEnded: true,
+        });
+        clearCallStateForPair(userId, my.peerId);
         videoNs.to(`user:${my.peerId}`).emit('call-ended', { callId: my.callId, reason: 'ice_failure' });
+        socket.emit('call-ended', { callId: my.callId, reason: 'ice_failure' });
       }
     });
 
@@ -299,10 +538,12 @@ function registerVideoNamespace(io) {
       socketToUserId.delete(socket.id);
       const my = userInCall.get(userId);
       if (my) {
-        clearTimeout(my.timeoutId);
-        userInCall.delete(userId);
-        userInCall.delete(Number(my.peerId));
-        updateCallStatus(my.callId, STATUS.FAILED, { setEndedAt: true, failureReason: 'disconnected' }).catch(() => {});
+        clearCallStateForPair(userId, my.peerId);
+        updateCallStatus(my.callId, STATUS.FAILED, {
+          setEndedAt: true,
+          failureReason: 'disconnected',
+          onlyIfNotEnded: true,
+        }).catch(() => {});
         videoNs.to(`user:${my.peerId}`).emit('call-ended', { callId: my.callId, reason: 'disconnected' });
       }
       clearEncounterState(userId);

@@ -1,8 +1,3 @@
-/**
- * ICE configuration for WebRTC.
- * Phase 1: STUN only (Google).
- * Phase 2: Add TURN from env (TURN_URL, TURN_USERNAME, TURN_PASSWORD) in production.
- */
 const GOOGLE_STUN = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -11,11 +6,29 @@ const GOOGLE_STUN = [
   { urls: 'stun:stun4.l.google.com:19302' },
 ];
 
-export function getIceServers() {
-  // Phase 2: STUN only in dev; STUN + TURN in production (TURN_URL, TURN_USERNAME, TURN_PASSWORD in .env)
-  // Phase 2: reconnect logic + connection state UI (connecting | connected | reconnecting | failed)
-  // Phase 2: bandwidth adaptation (lower resolution on packet loss) + fallback messaging if video fails
-  return { iceServers: [...GOOGLE_STUN] };
+function getTurnServerFromEnv() {
+  const turnUrl = process.env.NEXT_PUBLIC_TURN_URL || process.env.TURN_URL;
+  const username = process.env.NEXT_PUBLIC_TURN_USERNAME || process.env.TURN_USERNAME;
+  const credential = process.env.NEXT_PUBLIC_TURN_PASSWORD || process.env.TURN_PASSWORD;
+
+  if (!turnUrl || !username || !credential) return null;
+  return {
+    urls: turnUrl.split(',').map((v) => v.trim()).filter(Boolean),
+    username,
+    credential,
+  };
+}
+
+export function getIceServers({ forceTurn = false } = {}) {
+  const turn = getTurnServerFromEnv();
+  const servers = forceTurn ? [] : [...GOOGLE_STUN];
+  if (turn) {
+    servers.push(turn);
+  }
+  if (!turn) {
+    console.warn('[video:ice_state:warn] TURN is not configured; some networks may fail WebRTC connectivity.');
+  }
+  return { iceServers: servers };
 }
 
 export const ICE_SERVERS = GOOGLE_STUN;

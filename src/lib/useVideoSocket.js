@@ -26,29 +26,43 @@ export function useVideoSocket(enabled = true) {
     }
 
     if (!token) {
+      console.warn('[video:socket_handshake:fail] Missing JWT token for socket auth');
       setConnected(false);
       setSocket(null);
       return;
     }
 
     const url = getSocketUrl();
+    if (typeof window !== 'undefined' && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      console.error('[video:https:fail] Video calls require HTTPS outside localhost');
+    }
     const s = io(`${url}/video`, {
       auth: { token },
       path: '/socket.io',
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 8,
+      reconnectionDelay: 800,
     });
+    setSocket(s);
 
     s.on('connect', () => {
+      console.info('[video:socket_handshake:ok] Socket connected', { socketId: s.id });
+      s.emit('client-diagnostic', {
+        stage: 'socket_handshake',
+        status: 'ok',
+        message: 'Client socket connected',
+        meta: { socketId: s.id },
+      });
       setConnected(true);
-      setSocket(s);
     });
-    s.on('disconnect', () => {
+    s.on('disconnect', (reason) => {
+      console.warn('[video:socket_handshake:fail] Socket disconnected', { reason });
       setConnected(false);
-      setSocket(null);
     });
-    s.on('connect_error', () => {
+    s.on('connect_error', (error) => {
+      console.error('[video:socket_handshake:fail] Socket connection error', { message: error?.message });
       setConnected(false);
-      setSocket(null);
     });
 
     return () => {

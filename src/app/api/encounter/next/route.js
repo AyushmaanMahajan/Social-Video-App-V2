@@ -24,12 +24,6 @@ export async function GET(request) {
           SELECT 1 FROM reports r WHERE r.reporter_id = u.id AND r.reported_user_id = $1
         )
         AND NOT EXISTS (
-          SELECT 1 FROM encounter_skips s
-          WHERE s.user_id = $1
-            AND s.skipped_user_id = u.id
-            AND s.skipped_at >= NOW() - INTERVAL '24 hours'
-        )
-        AND NOT EXISTS (
           SELECT 1 FROM video_calls vc
           WHERE (vc.caller_id = u.id OR vc.receiver_id = u.id)
             AND vc.status = 'connected'

@@ -223,6 +223,52 @@ body.dark-mode {
   text-align: center;
 }
 
+.encounter-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.encounter-passed-list {
+  width: 100%;
+  max-width: 680px;
+  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.encounter-passed-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+}
+
+.encounter-passed-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #0c1017;
+}
+
+.encounter-passed-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.encounter-passed-meta p {
+  margin: 0;
+}
+
 .encounter-header {
   display: flex;
   justify-content: space-between;
