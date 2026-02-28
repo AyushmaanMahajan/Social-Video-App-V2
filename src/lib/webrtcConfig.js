@@ -33,7 +33,7 @@ function getTurnServerFromEnv() {
   };
 }
 
-export function getIceServers({ forceTurn = false } = {}) {
+export function getIceServers({ forceTurn = false }) {
   const turn = getTurnServerFromEnv();
   const servers = forceTurn ? [] : [...GOOGLE_STUN];
   if (turn) {

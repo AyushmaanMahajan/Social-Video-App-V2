@@ -22,7 +22,7 @@ function VideoChat({
   const [isMobile, setIsMobile] = useState(false);
   const [peer, setPeer] = useState(null);
   const [callId, setCallId] = useState(null);
-  const [forceTurn, setForceTurn] = useState(false);
+  const [forceTurn, setForceTurn] = useState(true);
 
   const isCallerRef = useRef(false);
   const localVideoRef = useRef(null);
@@ -67,7 +67,7 @@ function VideoChat({
     setCallState('idle');
     setPeer(null);
     setCallId(null);
-    setForceTurn(false);
+    setForceTurn(true);
   }, []);
 
   useEffect(() => {
@@ -195,7 +195,7 @@ function VideoChat({
           emitDiagnostic('ice_state', 'fail', `ICE remained in terminal state: ${currentState}`);
           socket.emit('ice-failure', { forceTurn, iceConnectionState: currentState });
           cleanup();
-        }, 20000);
+        }, 180000);
         return;
       }
       if (state === 'failed') {
@@ -289,7 +289,7 @@ function VideoChat({
     const { peerId, peerName, shouldOffer, callId: matchCallId } = encounterMatch;
     setPeer({ id: peerId, name: peerName });
     setCallId(matchCallId || null);
-    setForceTurn(false);
+    setForceTurn(true);
     connectedConfirmedRef.current = false;
     terminalIceFailureReportedRef.current = false;
     isCallerRef.current = shouldOffer;
