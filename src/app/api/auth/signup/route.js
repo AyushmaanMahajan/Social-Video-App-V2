@@ -4,6 +4,11 @@ import pool from '@/lib/db';
 
 export async function POST(request) {
   try {
+    if (!process.env.JWT_SECRET) {
+      console.error('[video:jwt_verification:fail] JWT_SECRET is missing in signup route');
+      return Response.json({ error: 'Server JWT configuration missing' }, { status: 500 });
+    }
+
     const body = await request.json();
     const { email, password, name, age, location } = body;
 

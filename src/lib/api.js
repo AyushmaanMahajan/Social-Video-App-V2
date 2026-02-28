@@ -53,6 +53,16 @@ export const skipEncounterProfile = async (skippedUserId) => {
   return data;
 };
 
+export const getPassedEncounterProfiles = async () => {
+  const { data } = await axios.get('/api/encounter/passed');
+  return data?.profiles || [];
+};
+
+export const restorePassedEncounterProfiles = async () => {
+  const { data } = await axios.delete('/api/encounter/passed');
+  return data;
+};
+
 export const recordInteraction = async (otherUserId, status) => {
   const { data } = await axios.post('/api/interactions/record', { otherUserId, status });
   return data;

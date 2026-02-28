@@ -1,10 +1,24 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getEncounterProfile, skipEncounterProfile, recordInteraction } from '@/lib/api';
+import {
+  getEncounterProfile,
+  skipEncounterProfile,
+  recordInteraction,
+  getPassedEncounterProfiles,
+  restorePassedEncounterProfiles,
+} from '@/lib/api';
 import VideoChat from './VideoChat';
 
 const ENCOUNTER_SECONDS = 30;
+const SESSION_PASS_RESET_KEY = 'encounter-pass-reset-v1';
+
+function formatSkippedAt(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString();
+}
 
 function InlineProfile({ profile }) {
   const photos = (profile?.photos || []).filter(Boolean);
@@ -72,8 +86,13 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
   const [requesting, setRequesting] = useState(false);
   const [encounterMatch, setEncounterMatch] = useState(null);
   const [inVideo, setInVideo] = useState(false);
+  const [passedProfiles, setPassedProfiles] = useState([]);
+  const [showPassedList, setShowPassedList] = useState(false);
+  const [restoringPassed, setRestoringPassed] = useState(false);
   const timerRef = useRef(null);
   const advanceLockRef = useRef(false);
+  const pendingConnectRef = useRef(false);
+  const didSessionResetRef = useRef(false);
 
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -90,8 +109,18 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
     }, 1000);
   }, []);
 
+  const loadPassedProfiles = useCallback(async () => {
+    try {
+      const profiles = await getPassedEncounterProfiles();
+      setPassedProfiles(profiles);
+    } catch {
+      setPassedProfiles([]);
+    }
+  }, []);
+
   const loadNext = useCallback(async () => {
     advanceLockRef.current = true;
+    pendingConnectRef.current = false;
     setLoading(true);
     setStatusMessage('');
     setRequesting(false);
@@ -103,20 +132,45 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
     }
 
     try {
+      if (typeof window !== 'undefined' && !didSessionResetRef.current) {
+        didSessionResetRef.current = true;
+        if (!window.sessionStorage.getItem(SESSION_PASS_RESET_KEY)) {
+          window.sessionStorage.setItem(SESSION_PASS_RESET_KEY, '1');
+          await restorePassedEncounterProfiles().catch(() => {});
+        }
+      }
+
       const nextProfile = await getEncounterProfile();
       setProfile(nextProfile);
       if (nextProfile) {
+        setPassedProfiles([]);
+        setShowPassedList(false);
         resetTimer();
       } else {
         setSecondsLeft(0);
+        await loadPassedProfiles();
       }
-    } catch (e) {
+    } catch {
       setStatusMessage('Could not load encounters right now.');
     } finally {
       setLoading(false);
       advanceLockRef.current = false;
     }
-  }, [resetTimer]);
+  }, [resetTimer, loadPassedProfiles]);
+
+  const restorePassedProfiles = useCallback(async () => {
+    setRestoringPassed(true);
+    try {
+      await restorePassedEncounterProfiles();
+      setPassedProfiles([]);
+      setShowPassedList(false);
+      await loadNext();
+    } catch {
+      setStatusMessage('Could not restore passed profiles right now.');
+    } finally {
+      setRestoringPassed(false);
+    }
+  }, [loadNext]);
 
   useEffect(() => {
     loadNext();
@@ -152,20 +206,45 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
     await loadNext();
   }, [profile, loadNext]);
 
+  const sendEncounterRequest = useCallback(
+    (targetProfile) => {
+      if (!targetProfile || !socket) return;
+      console.info('[video:call-request:ok] encounter-request emitted', { targetUserId: targetProfile.id });
+      socket.emit('client-diagnostic', {
+        stage: 'call-request',
+        status: 'ok',
+        message: 'encounter-request emitted by client',
+        meta: { targetUserId: targetProfile.id },
+      });
+      setRequesting(true);
+      setStatusMessage('Waiting for the other person to connect...');
+      socket.emit('encounter-request', { targetUserId: targetProfile.id });
+    },
+    [socket]
+  );
+
   const handleConnect = useCallback(() => {
     if (!profile || !socket) {
       setStatusMessage('Connect to the encounter network to continue.');
       return;
     }
-    setRequesting(true);
-    setStatusMessage('Waiting for the other person to connect...');
-    socket.emit('encounter-request', { targetUserId: profile.id });
-  }, [socket, profile]);
+    if (!socketConnected && !socket.connected) {
+      pendingConnectRef.current = true;
+      setRequesting(true);
+      setStatusMessage('Connecting to encounter network...');
+      socket.connect();
+      return;
+    }
+
+    pendingConnectRef.current = false;
+    sendEncounterRequest(profile);
+  }, [socket, profile, socketConnected, sendEncounterRequest]);
 
   useEffect(() => {
     if (!socket) return () => {};
 
     const onTimeout = async () => {
+      pendingConnectRef.current = false;
       setStatusMessage('No mutual connect. Loading someone new.');
       setRequesting(false);
       if (profile) {
@@ -180,6 +259,7 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
     };
 
     const handleMatch = (payload) => {
+      pendingConnectRef.current = false;
       setStatusMessage('Connection established. Starting video.');
       setRequesting(false);
       setEncounterMatch(payload);
@@ -190,16 +270,31 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
       }
     };
 
+    const onSocketConnect = () => {
+      if (pendingConnectRef.current && profile) {
+        pendingConnectRef.current = false;
+        sendEncounterRequest(profile);
+      }
+    };
+
+    const onSocketConnectError = () => {
+      pendingConnectRef.current = false;
+      setRequesting(false);
+      setStatusMessage('Encounter network unavailable. Try Connect again.');
+    };
+
     socket.on('encounter-timeout', onTimeout);
     socket.on('encounter-match', handleMatch);
-    socket.on('encounter-ready-ack', () => {});
+    socket.on('connect', onSocketConnect);
+    socket.on('connect_error', onSocketConnectError);
 
     return () => {
       socket.off('encounter-timeout', onTimeout);
       socket.off('encounter-match', handleMatch);
-      socket.off('encounter-ready-ack');
+      socket.off('connect', onSocketConnect);
+      socket.off('connect_error', onSocketConnectError);
     };
-  }, [socket, loadNext, profile]);
+  }, [socket, loadNext, profile, sendEncounterRequest]);
 
   useEffect(() => {
     if (!socket || !socketConnected) return () => {};
@@ -210,6 +305,7 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
   }, [socket, socketConnected]);
 
   useEffect(() => () => {
+    pendingConnectRef.current = false;
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
@@ -242,10 +338,62 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
     return (
       <div className="encounter-shell empty">
         <h2>No one is available right now</h2>
-        <p>Stay tuned—check back in a moment.</p>
-        <button type="button" className="btn-solid" onClick={loadNext}>
-          Refresh
-        </button>
+        <p>
+          {passedProfiles.length > 0
+            ? "You've passed everyone currently available."
+            : 'Stay tuned, check back in a moment.'}
+        </p>
+        <div className="encounter-empty-actions">
+          <button type="button" className="btn-solid" onClick={loadNext}>
+            Refresh
+          </button>
+          {passedProfiles.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setShowPassedList((prev) => !prev)}
+              >
+                {showPassedList
+                  ? 'Hide passed profiles'
+                  : `See passed profiles (${passedProfiles.length})`}
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={restorePassedProfiles}
+                disabled={restoringPassed}
+              >
+                {restoringPassed ? 'Restoring...' : 'Bring passed profiles back'}
+              </button>
+            </>
+          )}
+        </div>
+        {showPassedList && passedProfiles.length > 0 && (
+          <div className="encounter-passed-list">
+            {passedProfiles.map((passed) => (
+              <div key={passed.id} className="encounter-passed-item">
+                {passed.photo && (
+                  <img
+                    src={passed.photo}
+                    alt={`${passed.name} profile`}
+                    className="encounter-passed-avatar"
+                  />
+                )}
+                <div className="encounter-passed-meta">
+                  <strong>
+                    {passed.name}
+                    {passed.age ? `, ${passed.age}` : ''}
+                  </strong>
+                  {passed.location && <p className="muted">{passed.location}</p>}
+                  {formatSkippedAt(passed.skippedAt) && (
+                    <p className="muted">Passed on {formatSkippedAt(passed.skippedAt)}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -277,6 +425,9 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
       </div>
 
       {statusMessage && <div className="encounter-status">{statusMessage}</div>}
+      {!statusMessage && !socketConnected && (
+        <div className="encounter-status">Encounter network reconnecting...</div>
+      )}
 
       <div className="encounter-actions">
         <button type="button" className="btn-ghost" onClick={handlePass} disabled={requesting}>
@@ -286,7 +437,7 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
           type="button"
           className="btn-solid"
           onClick={handleConnect}
-          disabled={!socketConnected || requesting}
+          disabled={requesting}
         >
           Connect
         </button>
@@ -294,3 +445,4 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
     </div>
   );
 }
+
