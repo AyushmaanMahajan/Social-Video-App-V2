@@ -580,6 +580,9 @@ function registerVideoNamespace(io) {
           [userId, targetUserId, enabled]
         );
         const mutual = await isChatMutual(userId, Number(targetUserId));
+        if (enabled) {
+          videoNs.to(`user:${targetUserId}`).emit('chat-peer-enabled', { peerId: Number(userId) });
+        }
         if (mutual) {
           videoNs.to(`user:${userId}`).emit('chat-unlocked', { peerId: Number(targetUserId) });
           videoNs.to(`user:${targetUserId}`).emit('chat-unlocked', { peerId: Number(userId) });

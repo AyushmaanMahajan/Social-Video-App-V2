@@ -15,6 +15,7 @@ export default function Interactions({ socket, socketConnected }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [chatEnabled, setChatEnabled] = useState(false);
+  const [peerEnabled, setPeerEnabled] = useState(false);
   const [waitingMessage, setWaitingMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -37,6 +38,7 @@ export default function Interactions({ socket, socketConnected }) {
 
   const selectedId = selected?.otherUserId;
   const selectedEncounterId = selected?.id || null;
+  const mutualChat = chatEnabled && peerEnabled;
 
   useEffect(() => {
     let active = true;
@@ -48,12 +50,16 @@ export default function Interactions({ socket, socketConnected }) {
     ])
       .then(([statusRes, history]) => {
         if (!active) return;
+        setChatEnabled(Boolean(statusRes?.meEnabled));
+        setPeerEnabled(Boolean(statusRes?.themEnabled));
         if (statusRes.mutual) {
-          setChatEnabled(true);
           setWaitingMessage('');
-        } else {
-          setChatEnabled(false);
+        } else if (statusRes?.themEnabled && !statusRes?.meEnabled) {
+          setWaitingMessage('They enabled chat. Slide to unlock yours.');
+        } else if (!statusRes?.themEnabled && statusRes?.meEnabled) {
           setWaitingMessage('Waiting for the other user to enable chat.');
+        } else {
+          setWaitingMessage('Enable chat to start messaging.');
         }
         const mapped = (history || []).map((m) => ({
           id: m.id,
@@ -83,13 +89,23 @@ export default function Interactions({ socket, socketConnected }) {
     const handleUnlocked = (payload) => {
       if (payload?.peerId === selectedId) {
         setChatEnabled(true);
+        setPeerEnabled(true);
         setWaitingMessage('');
       }
     };
     const handleLocked = (payload) => {
       if (payload?.peerId === selectedId) {
         setChatEnabled(false);
+        setPeerEnabled(false);
         setWaitingMessage('Both users must enable chat.');
+      }
+    };
+    const handlePeerEnabled = (payload) => {
+      if (payload?.peerId === selectedId) {
+        setPeerEnabled(true);
+        if (!chatEnabled) {
+          setWaitingMessage('They enabled chat. Slide to unlock yours.');
+        }
       }
     };
     const handleChat = (payload) => {
@@ -112,16 +128,18 @@ export default function Interactions({ socket, socketConnected }) {
     };
     socket.on('chat-unlocked', handleUnlocked);
     socket.on('chat-locked', handleLocked);
+    socket.on('chat-peer-enabled', handlePeerEnabled);
     socket.on('chat-message', handleChat);
     return () => {
       socket.off('chat-unlocked', handleUnlocked);
       socket.off('chat-locked', handleLocked);
+      socket.off('chat-peer-enabled', handlePeerEnabled);
       socket.off('chat-message', handleChat);
     };
-  }, [socket, selectedId]);
+  }, [socket, selectedId, chatEnabled]);
 
   const sendMessage = () => {
-    if (!input.trim() || !socket || !selectedId || !chatEnabled || !socketConnected) return;
+    if (!input.trim() || !socket || !selectedId || !mutualChat || !socketConnected) return;
     const text = input.trim();
     socket.emit('chat-message', { targetUserId: selectedId, text, encounterId: selectedEncounterId });
     setInput('');
@@ -131,14 +149,17 @@ export default function Interactions({ socket, socketConnected }) {
     if (!selectedId) return;
     try {
       const res = await toggleChat(selectedId, enabled);
+      setChatEnabled(enabled);
+      setPeerEnabled(Boolean(res?.themEnabled));
+      if (socket) socket.emit('chat-toggle', { targetUserId: selectedId, enabled });
       if (res.mutual) {
-        setChatEnabled(true);
         setWaitingMessage('');
-        if (socket) socket.emit('chat-toggle', { targetUserId: selectedId, enabled: true });
-      } else {
-        setChatEnabled(false);
+      } else if (res?.themEnabled && enabled) {
+        setWaitingMessage('They enabled chat. Slide to unlock yours.');
+      } else if (!res?.themEnabled && enabled) {
         setWaitingMessage('Waiting for the other user to enable chat.');
-        if (socket) socket.emit('chat-toggle', { targetUserId: selectedId, enabled });
+      } else {
+        setWaitingMessage('Enable chat to start messaging.');
       }
     } catch {
       setWaitingMessage('Could not update chat setting.');
@@ -203,14 +224,27 @@ export default function Interactions({ socket, socketConnected }) {
                   <p className="meta">{selected.status}</p>
                 </div>
                 <div className="chat-toggle">
-                  <label>
+                  <label className="chat-toggle-switch">
                     <input
                       type="checkbox"
                       checked={chatEnabled}
                       onChange={(e) => toggle(e.target.checked)}
                       disabled={!socketConnected}
                     />
-                    Enable chat
+                    <span className="toggle-track">
+                      <span className="toggle-thumb">
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            d="M12 3c-3.866 0-7 2.91-7 6.5 0 4.75 6.06 10.08 6.33 10.31a1 1 0 0 0 1.34 0C12.94 19.58 19 14.25 19 9.5 19 5.91 15.866 3 12 3Zm0 8.5a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </span>
+                      <span className="toggle-label">
+                        {chatEnabled ? 'Chat enabled' : 'Privacy on'}
+                        {peerEnabled && !chatEnabled && <span className="peer-hint">They enabled</span>}
+                      </span>
+                    </span>
                   </label>
                   {!chatEnabled && waitingMessage && <p className="muted">{waitingMessage}</p>}
                 </div>
@@ -238,9 +272,9 @@ export default function Interactions({ socket, socketConnected }) {
                     placeholder="Type a message..."
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                    disabled={!chatEnabled}
+                    disabled={!mutualChat}
                   />
-                  <button type="button" className="btn-solid" onClick={sendMessage} disabled={!chatEnabled}>
+                  <button type="button" className="btn-solid" onClick={sendMessage} disabled={!mutualChat}>
                     Send
                   </button>
                 </div>
