@@ -33,6 +33,11 @@ export const login = async (email, password) => {
 
 export const logout = () => removeToken();
 
+export const logoutSession = async () => {
+  const { data } = await axios.post('/api/auth/logout');
+  return data;
+};
+
 export const getUser = async (userId) => {
   const { data } = await axios.get(`/api/users/${userId}`);
   return data;
@@ -40,6 +45,16 @@ export const getUser = async (userId) => {
 
 export const updateUser = async (userData) => {
   const { data } = await axios.put('/api/users/me', userData);
+  return data;
+};
+
+export const getMe = async () => {
+  const { data } = await axios.get('/api/users/me');
+  return data;
+};
+
+export const deleteMyAccount = async (confirmation) => {
+  const { data } = await axios.delete('/api/users/me', { data: { confirmation } });
   return data;
 };
 

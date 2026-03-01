@@ -245,7 +245,7 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
           />
         </div>
         <div className="presence-toggle">
-          <label>
+          <label className="presence-toggle-switch">
             <input
               type="checkbox"
               checked={showStatus}
@@ -259,7 +259,12 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
                 }
               }}
             />
-            Show my online status
+            <span className="presence-toggle-track">
+              <span className="presence-toggle-thumb" />
+              <span className="presence-toggle-text">
+                {showStatus ? 'Online status: ON' : 'Online status: OFF'}
+              </span>
+            </span>
           </label>
         </div>
       </div>

@@ -6,7 +6,7 @@ import ProfileEdit from './ProfileEdit';
 import AccountSettings from './AccountSettings';
 import SupportPage from './SupportPage';
 
-function UserProfile({ currentUser }) {
+function UserProfile({ currentUser, entryMode = null, onEntryModeConsumed }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState('view'); // 'view', 'edit', 'settings', 'support'
@@ -14,6 +14,12 @@ function UserProfile({ currentUser }) {
   useEffect(() => {
     loadUser();
   }, []);
+
+  useEffect(() => {
+    if (!entryMode) return;
+    setMode(entryMode);
+    onEntryModeConsumed?.();
+  }, [entryMode, onEntryModeConsumed]);
 
   const loadUser = async () => {
     try {
