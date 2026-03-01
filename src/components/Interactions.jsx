@@ -22,8 +22,7 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
-  const [chatEnabled, setChatEnabled] = useState(false);
-  const [peerEnabled, setPeerEnabled] = useState(false);
+  const [chatState, setChatState] = useState(new Map()); // userId -> { me: bool, them: bool }
   const [waitingMessage, setWaitingMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -54,6 +53,9 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
 
   const selectedId = selected?.otherUserId;
   const selectedEncounterId = selected?.id || null;
+  const currentChatState = selectedId ? chatState.get(selectedId) || { me: false, them: false } : { me: false, them: false };
+  const chatEnabled = currentChatState.me;
+  const peerEnabled = currentChatState.them;
   const mutualChat = chatEnabled && peerEnabled;
 
   useEffect(() => {
@@ -66,8 +68,11 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
     ])
       .then(([statusRes, history]) => {
         if (!active) return;
-        setChatEnabled(Boolean(statusRes?.meEnabled));
-        setPeerEnabled(Boolean(statusRes?.themEnabled));
+        setChatState((prev) => {
+          const next = new Map(prev);
+          next.set(selectedId, { me: Boolean(statusRes?.meEnabled), them: Boolean(statusRes?.themEnabled) });
+          return next;
+        });
         if (statusRes.mutual) {
           setWaitingMessage('');
         } else if (statusRes?.themEnabled && !statusRes?.meEnabled) {
@@ -104,21 +109,32 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
     if (!socket) return () => {};
     const handleUnlocked = (payload) => {
       if (payload?.peerId === selectedId) {
-        setChatEnabled(true);
-        setPeerEnabled(true);
+        setChatState((prev) => {
+          const next = new Map(prev);
+          next.set(selectedId, { me: true, them: true });
+          return next;
+        });
         setWaitingMessage('');
       }
     };
     const handleLocked = (payload) => {
       if (payload?.peerId === selectedId) {
-        setChatEnabled(false);
-        setPeerEnabled(false);
+        setChatState((prev) => {
+          const next = new Map(prev);
+          next.set(selectedId, { me: false, them: false });
+          return next;
+        });
         setWaitingMessage('Both users must enable chat.');
       }
     };
     const handlePeerEnabled = (payload) => {
       if (payload?.peerId === selectedId) {
-        setPeerEnabled(true);
+        setChatState((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(selectedId) || { me: false, them: false };
+          next.set(selectedId, { ...existing, them: true });
+          return next;
+        });
         if (!chatEnabled) {
           setWaitingMessage('They enabled chat. Slide to unlock yours.');
         }
@@ -165,8 +181,11 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
     if (!selectedId) return;
     try {
       const res = await toggleChat(selectedId, enabled);
-      setChatEnabled(enabled);
-      setPeerEnabled(Boolean(res?.themEnabled));
+      setChatState((prev) => {
+        const next = new Map(prev);
+        next.set(selectedId, { me: enabled, them: Boolean(res?.themEnabled) });
+        return next;
+      });
       if (socket) socket.emit('chat-toggle', { targetUserId: selectedId, enabled });
       if (res.mutual) {
         setWaitingMessage('');
@@ -256,14 +275,15 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
                 setMessages([]);
               }}
             >
-              <div className="avatar">
+              <div className="avatar status-avatar">
                 {item.user.photo ? <img src={item.user.photo} alt={item.user.name} /> : <div className="avatar-fallback" />}
+                <span
+                  className={`status-badge ${isOnline(item.otherUserId) ? 'online' : 'offline'}`}
+                  aria-label={isOnline(item.otherUserId) ? 'Online' : 'Offline'}
+                />
               </div>
               <div className="interaction-info">
-                <p className="name">
-                  <span className={`status-dot ${isOnline(item.otherUserId) ? 'online' : 'offline'}`} aria-label={isOnline(item.otherUserId) ? 'Online' : 'Offline'} />
-                  {item.user.name}
-                </p>
+                <p className="name">{item.user.name}</p>
                 <p className="meta">Last: {new Date(item.lastInteractionAt).toLocaleString()}</p>
               </div>
               <StatusBadge status={item.status} />
@@ -300,7 +320,7 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
                         </svg>
                       </span>
                       <span className="toggle-label">
-                        {chatEnabled ? 'Chat enabled' : 'Privacy on'}
+                        {chatEnabled ? 'Chat enabled' : 'Enable chat'}
                         {peerEnabled && !chatEnabled && <span className="peer-hint">They enabled</span>}
                       </span>
                     </span>
