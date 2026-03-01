@@ -211,7 +211,7 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
         setStatuses(map);
       })
       .catch(() => {});
-  }, [items]);
+  }, [items, onlineIds]);
 
   const filteredItems = useMemo(() => {
     const base = search
@@ -223,7 +223,8 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
   const isOnline = (userId) => {
     const status = statuses.get(userId);
     if (status) {
-      return status.showStatus && status.online;
+      if (!status.showStatus) return false;
+      return status.online || onlineIds.includes(userId);
     }
     return onlineIds.includes(userId);
   };
