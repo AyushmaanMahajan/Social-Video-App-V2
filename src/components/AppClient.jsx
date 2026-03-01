@@ -9,17 +9,20 @@ import Encounter from './Encounter';
 import Interactions from './Interactions';
 import { useVideoSocket } from '@/lib/useVideoSocket';
 import VideoChat from './VideoChat';
-import { getCurrentUser, getToken, removeToken } from '@/lib/api';
+import { deleteMyAccount, getMe, getToken, logoutSession, removeToken } from '@/lib/api';
 
 const NAV_ITEMS = [
   { id: 'encounter', label: 'Encounter' },
   { id: 'interactions', label: 'Interactions' },
   { id: 'profile', label: 'Profile' }
 ];
+const USER_CACHE_KEY = 'current_user';
 
 export default function AppClient() {
   const [currentUser, setCurrentUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
   const [currentPage, setCurrentPage] = useState('encounter');
+  const [profileEntryMode, setProfileEntryMode] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [activeEncounterMatch, setActiveEncounterMatch] = useState(null);
@@ -34,46 +37,60 @@ export default function AppClient() {
     document.body.classList.add('dark-mode');
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
+      const searchParams = new URLSearchParams(window.location.search);
+      const supportMode = searchParams.get('support') === '1';
+
+      if (supportMode) {
+        setCurrentPage('profile');
+        setProfileEntryMode('support');
+      }
       if (path.includes('/interactions')) setCurrentPage('interactions');
+      if (path.includes('/support')) {
+        setCurrentPage('profile');
+        setProfileEntryMode('support');
+      }
       if (path.includes('/profile')) setCurrentPage('profile');
     }
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const restoreSession = async () => {
+    if (typeof window === 'undefined') return () => {};
+
+    const token = getToken();
+    if (!token) {
+      window.localStorage.removeItem(USER_CACHE_KEY);
+      setAuthReady(true);
+      return () => {};
+    }
+
+    const cached = window.localStorage.getItem(USER_CACHE_KEY);
+    if (cached) {
       try {
-        const token = getToken();
-        if (typeof window !== 'undefined') {
-          console.info('[auth:bootstrap]', {
-            origin: window.location.origin,
-            hasToken: Boolean(token),
-          });
-        }
-        if (!token) {
-          console.warn('[auth:bootstrap] No token found, skipping /api/users/me');
-          return;
-        }
-        console.info('[auth:bootstrap] Fetching current user via /api/users/me');
-        const user = await getCurrentUser();
-        console.info('[auth:bootstrap] /api/users/me success', { userId: user?.id || null });
-        if (!cancelled) setCurrentUser(user);
+        setCurrentUser(JSON.parse(cached));
+      } catch {
+        window.localStorage.removeItem(USER_CACHE_KEY);
+      }
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const me = await getMe();
+        if (cancelled) return;
+        setCurrentUser(me);
+        window.localStorage.setItem(USER_CACHE_KEY, JSON.stringify(me));
+        setAuthReady(true);
       } catch (error) {
-        console.error('[auth:bootstrap] /api/users/me failed', {
-          status: error?.response?.status || null,
-          message: error?.response?.data?.error || error?.message || 'unknown_error',
-        });
-        if (!cancelled) {
-          const errorMessage = error?.response?.data?.error || '';
-          if (error?.response?.status === 401 && errorMessage === 'Invalid token') removeToken();
+        if (cancelled) return;
+        if (error?.response?.status === 401) {
+          removeToken();
+          window.localStorage.removeItem(USER_CACHE_KEY);
           setCurrentUser(null);
         }
-      } finally {
-        console.info('[auth:bootstrap] Completed');
-        if (!cancelled) setAuthBootstrapping(false);
+        setAuthReady(true);
       }
-    };
-    restoreSession();
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -90,11 +107,20 @@ export default function AppClient() {
 
   const handleProfileCreated = (user) => {
     setCurrentUser(user);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    }
     setCurrentPage('encounter');
   };
 
   const handleSaveProfile = async (updatedData) => {
-    setCurrentUser({ ...currentUser, ...updatedData });
+    setCurrentUser((previous) => {
+      const next = { ...previous, ...updatedData };
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(USER_CACHE_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
   };
 
   const handleOpenEditProfile = () => {
@@ -102,12 +128,53 @@ export default function AppClient() {
     setShowEditProfile(true);
   };
 
+  const handleOpenSupport = () => {
+    setShowSettings(false);
+    setCurrentPage('profile');
+    setProfileEntryMode('support');
+  };
+
+  const clearClientSession = () => {
+    removeToken();
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(USER_CACHE_KEY);
+    }
+    setShowSettings(false);
+    setShowEditProfile(false);
+    setVideoActive(false);
+    setActiveEncounterMatch(null);
+    setProfileEntryMode(null);
+    setCurrentPage('encounter');
+    setCurrentUser(null);
+    setAuthReady(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutSession();
+    } catch (error) {
+      console.error('Logout request failed', error);
+    } finally {
+      clearClientSession();
+    }
+  };
+
+  const handleDeleteAccount = async (confirmation) => {
+    await deleteMyAccount(confirmation);
+    clearClientSession();
+  };
+
   const renderNavButtons = () => (
     NAV_ITEMS.map((item) => (
       <button
         key={item.id}
         className={currentPage === item.id ? 'nav-btn active' : 'nav-btn'}
-        onClick={() => setCurrentPage(item.id)}
+        onClick={() => {
+          setCurrentPage(item.id);
+          if (item.id === 'profile') {
+            setProfileEntryMode('view');
+          }
+        }}
         aria-label={item.label}
       >
         <span className="nav-label">{item.label}</span>
@@ -137,9 +204,8 @@ export default function AppClient() {
       </header>
 
       <main className="app-main">
-        {authBootstrapping && <div className="encounter-shell">Restoring your session...</div>}
-
-        {!authBootstrapping && !currentUser && <ProfileForm onProfileCreated={handleProfileCreated} />}
+        {!currentUser && authReady && <ProfileForm onProfileCreated={handleProfileCreated} />}
+        {!currentUser && !authReady && <div className="loading">Loading...</div>}
 
         {!authBootstrapping && currentUser && currentPage === 'encounter' && !videoActive && (
           <Encounter
@@ -167,7 +233,13 @@ export default function AppClient() {
           />
         )}
 
-        {!authBootstrapping && currentUser && currentPage === 'profile' && <UserProfile currentUser={currentUser} />}
+        {currentUser && currentPage === 'profile' && (
+          <UserProfile
+            currentUser={currentUser}
+            entryMode={profileEntryMode}
+            onEntryModeConsumed={() => setProfileEntryMode(null)}
+          />
+        )}
       </main>
 
       {currentUser && (
@@ -177,7 +249,13 @@ export default function AppClient() {
       )}
 
       {showSettings && (
-        <SettingsPage onEditProfile={handleOpenEditProfile} onClose={() => setShowSettings(false)} />
+        <SettingsPage
+          onEditProfile={handleOpenEditProfile}
+          onSupport={handleOpenSupport}
+          onLogout={handleLogout}
+          onDeleteAccount={handleDeleteAccount}
+          onClose={() => setShowSettings(false)}
+        />
       )}
 
       {showEditProfile && currentUser && (

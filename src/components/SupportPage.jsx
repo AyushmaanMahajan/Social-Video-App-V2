@@ -97,18 +97,13 @@ function SupportPage({ user, onBack }) {
               {isSending ? 'Sending...' : 'Send Message'}
             </button>
           </div>
+
+          <div className="support-policy-link">
+            <a href="/community-guidelines">Read Community Guidelines</a>
+          </div>
         </div>
       )}
 
-      <div className="support-resources">
-        <h3 className="resources-title">Quick Help</h3>
-        <div className="resource-links">
-          <a href="#" className="resource-link">Community Guidelines</a>
-          <a href="#" className="resource-link">Safety Tips for Video Calls</a>
-          <a href="#" className="resource-link">Privacy Policy</a>
-          <a href="#" className="resource-link">Terms of Service</a>
-        </div>
-      </div>
     </div>
   );
 }

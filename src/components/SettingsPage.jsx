@@ -1,12 +1,54 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-function SettingsPage({ onEditProfile, onClose }) {
+function SettingsPage({ onEditProfile, onSupport, onLogout, onDeleteAccount, onClose }) {
   const router = useRouter();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (!onLogout || isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await onLogout();
+    } catch (error) {
+      console.error('Logout failed', error);
+      setIsLoggingOut(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDeleteAccount || isDeleting) return;
+    const normalized = deleteText.trim().toLowerCase();
+    if (normalized !== 'delete') {
+      setDeleteError('Type "delete" exactly to confirm.');
+      return;
+    }
+
+    setDeleteError('');
+    setIsDeleting(true);
+    try {
+      await onDeleteAccount(normalized);
+    } catch (error) {
+      setDeleteError(error?.response?.data?.error || 'Failed to delete account. Please try again.');
+      setIsDeleting(false);
+    }
+  };
+
   const menuItems = [
     { label: 'Edit Profile', action: onEditProfile },
-    { label: 'Support', action: () => { router.push('/support'); onClose(); } },
+    { label: 'Support', action: onSupport },
+    {
+      label: 'Community Guidelines',
+      action: () => {
+        onClose();
+        router.push('/community-guidelines');
+      },
+    },
   ];
 
   return (
@@ -38,6 +80,60 @@ function SettingsPage({ onEditProfile, onClose }) {
           </div>
 
           <div className="settings-footer">
+            <div className="settings-danger-zone">
+              <button
+                className="settings-logout-btn"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? 'Logging out...' : 'Log Out'}
+              </button>
+
+              {!showDeleteConfirm ? (
+                <button
+                  className="delete-account-btn"
+                  onClick={() => {
+                    setShowDeleteConfirm(true);
+                    setDeleteText('');
+                    setDeleteError('');
+                  }}
+                >
+                  Delete Account
+                </button>
+              ) : (
+                <div className="delete-confirm-card">
+                  <p className="delete-confirm-text">Type &quot;delete&quot; to permanently remove your account.</p>
+                  <input
+                    className="delete-confirm-input"
+                    type="text"
+                    value={deleteText}
+                    onChange={(e) => setDeleteText(e.target.value)}
+                    placeholder='Type "delete"'
+                    autoComplete="off"
+                    aria-label='Type "delete" to confirm account deletion'
+                  />
+                  <div className="delete-confirm-actions">
+                    <button className="delete-confirm-btn" onClick={handleDelete} disabled={isDeleting}>
+                      {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                    </button>
+                    <button
+                      className="delete-cancel-btn"
+                      onClick={() => {
+                        if (isDeleting) return;
+                        setShowDeleteConfirm(false);
+                        setDeleteText('');
+                        setDeleteError('');
+                      }}
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {deleteError && <p className="settings-error">{deleteError}</p>}
+                </div>
+              )}
+            </div>
+
             <p className="app-version">Version 1.0.0</p>
           </div>
         </div>
