@@ -31,6 +31,10 @@ export async function GET(request) {
     );
 
     const otherIds = result.rows.map((r) => Number(r.other_user_id));
+    if (!otherIds.length) {
+      return Response.json({ interactions: [] });
+    }
+
     const profiles = await pool.query(
       `
         SELECT id, name, age, location

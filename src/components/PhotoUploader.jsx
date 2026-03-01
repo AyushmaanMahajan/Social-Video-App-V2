@@ -45,22 +45,52 @@ function PhotoUploader({ photos, onChange }) {
     return data.url;
   };
 
-  const persistPhotos = async (nextPhotos) => {
+  const savePhotoUrl = async ({ url, index = null }) => {
     const token = getToken();
-    const res = await fetch('/api/users/me', {
-      method: 'PUT',
+    if (!token) {
+      throw new Error('You need to be logged in to upload photos.');
+    }
+
+    const method = index === null ? 'POST' : 'PUT';
+    const body = index === null ? { url } : { url, index };
+    const res = await fetch('/api/users/photos', {
+      method,
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        photos: nextPhotos,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
-      throw new Error(await parseError(res, 'Failed to save photo to profile.'));
+      throw new Error(await parseError(res, 'Failed to save photo.'));
     }
+
+    const data = await res.json();
+    return Array.isArray(data?.photos) ? data.photos : null;
+  };
+
+  const removePhotoFromProfile = async (index) => {
+    const token = getToken();
+    if (!token) {
+      throw new Error('You need to be logged in to remove photos.');
+    }
+
+    const res = await fetch('/api/users/photos', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ index }),
+    });
+
+    if (!res.ok) {
+      throw new Error(await parseError(res, 'Failed to remove photo.'));
+    }
+
+    const data = await res.json();
+    return Array.isArray(data?.photos) ? data.photos : null;
   };
 
   const openFilePicker = (index = null) => {
@@ -101,14 +131,15 @@ function PhotoUploader({ photos, onChange }) {
     setIsUploading(true);
     try {
       const uploadedUrl = await handlePhotoUpload(file);
-      const newPreviews = [...previews];
-      if (targetIndex !== null && targetIndex >= 0 && targetIndex < newPreviews.length) {
+      let newPreviews = [...previews];
+      const savedPhotos = await savePhotoUrl({ url: uploadedUrl, index: targetIndex });
+      if (savedPhotos) {
+        newPreviews = savedPhotos;
+      } else if (targetIndex !== null && targetIndex >= 0 && targetIndex < newPreviews.length) {
         newPreviews[targetIndex] = uploadedUrl;
       } else {
         newPreviews.push(uploadedUrl);
       }
-
-      await persistPhotos(newPreviews);
       setPreviews(newPreviews);
       onChange(newPreviews);
       setUploadStatus('Photo uploaded successfully.');
@@ -125,9 +156,9 @@ function PhotoUploader({ photos, onChange }) {
     if (isUploading) return;
     setUploadError('');
     setUploadStatus('Updating photos...');
-    const newPreviews = previews.filter((_, i) => i !== index);
     try {
-      await persistPhotos(newPreviews);
+      const savedPhotos = await removePhotoFromProfile(index);
+      const newPreviews = savedPhotos || previews.filter((_, i) => i !== index);
       setPreviews(newPreviews);
       onChange(newPreviews);
       setUploadStatus('Photo removed.');

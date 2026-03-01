@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
-    "init-db": "node init-db.js"
+    "init-db": "node init-db.js",
+    "cleanup:photo-base64": "node scripts/cleanup-base64-photos.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1000.0",

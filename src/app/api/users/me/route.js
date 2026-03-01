@@ -1,6 +1,16 @@
 import pool from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 
+const MAX_PHOTOS = 6;
+
+const normalizePhotoUrl = (value) => String(value || '').trim();
+const isValidPhotoUrl = (value) => {
+  const url = normalizePhotoUrl(value);
+  if (!url) return false;
+  if (/^data:/i.test(url)) return false;
+  return /^https?:\/\//i.test(url);
+};
+
 export async function GET(request) {
   const auth = requireAuth(request);
   if (auth.userId === undefined) return auth;
@@ -94,11 +104,19 @@ export async function PUT(request) {
     );
 
     if (Array.isArray(photos)) {
+      const normalizedPhotos = photos.map(normalizePhotoUrl).filter(Boolean);
+      if (normalizedPhotos.length > MAX_PHOTOS) {
+        return Response.json({ error: `You can save up to ${MAX_PHOTOS} photos.` }, { status: 400 });
+      }
+      if (normalizedPhotos.some((url) => !isValidPhotoUrl(url))) {
+        return Response.json({ error: 'Invalid photo URL. Base64 values are not allowed.' }, { status: 400 });
+      }
+
       await pool.query('DELETE FROM photos WHERE user_id = $1', [userId]);
-      for (let i = 0; i < photos.length; i++) {
+      for (let i = 0; i < normalizedPhotos.length; i++) {
         await pool.query('INSERT INTO photos (user_id, url, order_index) VALUES ($1, $2, $3)', [
           userId,
-          photos[i],
+          normalizedPhotos[i],
           i,
         ]);
       }
