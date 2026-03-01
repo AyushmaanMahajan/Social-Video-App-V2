@@ -162,3 +162,26 @@ CREATE INDEX IF NOT EXISTS idx_user_presence_online ON user_presence(online);
 ALTER TABLE users
 ADD COLUMN IF NOT EXISTS photos TEXT[] DEFAULT '{}';
 
+-- Prevent accidental base64/raw-image storage in photos.url.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'photos_url_http_check'
+  ) THEN
+    ALTER TABLE photos
+    ADD CONSTRAINT photos_url_http_check CHECK (url ~* '^https?://');
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'photos_url_not_data_uri_check'
+  ) THEN
+    ALTER TABLE photos
+    ADD CONSTRAINT photos_url_not_data_uri_check CHECK (url !~* '^data:');
+  END IF;
+END
+$$;
+
