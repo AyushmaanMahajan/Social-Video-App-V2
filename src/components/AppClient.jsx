@@ -44,16 +44,32 @@ export default function AppClient() {
     const restoreSession = async () => {
       try {
         const token = getToken();
-        if (!token) return;
+        if (typeof window !== 'undefined') {
+          console.info('[auth:bootstrap]', {
+            origin: window.location.origin,
+            hasToken: Boolean(token),
+          });
+        }
+        if (!token) {
+          console.warn('[auth:bootstrap] No token found, skipping /api/users/me');
+          return;
+        }
+        console.info('[auth:bootstrap] Fetching current user via /api/users/me');
         const user = await getCurrentUser();
+        console.info('[auth:bootstrap] /api/users/me success', { userId: user?.id || null });
         if (!cancelled) setCurrentUser(user);
       } catch (error) {
+        console.error('[auth:bootstrap] /api/users/me failed', {
+          status: error?.response?.status || null,
+          message: error?.response?.data?.error || error?.message || 'unknown_error',
+        });
         if (!cancelled) {
           const errorMessage = error?.response?.data?.error || '';
           if (error?.response?.status === 401 && errorMessage === 'Invalid token') removeToken();
           setCurrentUser(null);
         }
       } finally {
+        console.info('[auth:bootstrap] Completed');
         if (!cancelled) setAuthBootstrapping(false);
       }
     };
