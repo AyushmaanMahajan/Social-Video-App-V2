@@ -33,6 +33,11 @@ export const login = async (email, password) => {
 
 export const logout = () => removeToken();
 
+export const getCurrentUser = async () => {
+  const { data } = await axios.get('/api/users/me');
+  return data;
+};
+
 export const getUser = async (userId) => {
   const { data } = await axios.get(`/api/users/${userId}`);
   return data;

@@ -9,6 +9,7 @@ import Encounter from './Encounter';
 import Interactions from './Interactions';
 import { useVideoSocket } from '@/lib/useVideoSocket';
 import VideoChat from './VideoChat';
+import { getCurrentUser, getToken, removeToken } from '@/lib/api';
 
 const NAV_ITEMS = [
   { id: 'encounter', label: 'Encounter' },
@@ -27,6 +28,7 @@ export default function AppClient() {
   const { socket, connected: socketConnected } = useVideoSocket();
   const [onlineIds, setOnlineIds] = useState([]);
   const [floatPos, setFloatPos] = useState({ x: 12, y: 12 });
+  const [authBootstrapping, setAuthBootstrapping] = useState(true);
 
   useEffect(() => {
     document.body.classList.add('dark-mode');
@@ -35,6 +37,29 @@ export default function AppClient() {
       if (path.includes('/interactions')) setCurrentPage('interactions');
       if (path.includes('/profile')) setCurrentPage('profile');
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const restoreSession = async () => {
+      try {
+        const token = getToken();
+        if (!token) return;
+        const user = await getCurrentUser();
+        if (!cancelled) setCurrentUser(user);
+      } catch (error) {
+        if (!cancelled) {
+          if (error?.response?.status === 401) removeToken();
+          setCurrentUser(null);
+        }
+      } finally {
+        if (!cancelled) setAuthBootstrapping(false);
+      }
+    };
+    restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -95,9 +120,11 @@ export default function AppClient() {
       </header>
 
       <main className="app-main">
-        {!currentUser && <ProfileForm onProfileCreated={handleProfileCreated} />}
+        {authBootstrapping && <div className="encounter-shell">Restoring your session...</div>}
 
-        {currentUser && currentPage === 'encounter' && !videoActive && (
+        {!authBootstrapping && !currentUser && <ProfileForm onProfileCreated={handleProfileCreated} />}
+
+        {!authBootstrapping && currentUser && currentPage === 'encounter' && !videoActive && (
           <Encounter
             socket={socket}
             socketConnected={socketConnected}
@@ -115,7 +142,7 @@ export default function AppClient() {
           />
         )}
 
-        {currentUser && currentPage === 'interactions' && (
+        {!authBootstrapping && currentUser && currentPage === 'interactions' && (
           <Interactions
             socket={socket}
             socketConnected={socketConnected}
@@ -123,7 +150,7 @@ export default function AppClient() {
           />
         )}
 
-        {currentUser && currentPage === 'profile' && <UserProfile currentUser={currentUser} />}
+        {!authBootstrapping && currentUser && currentPage === 'profile' && <UserProfile currentUser={currentUser} />}
       </main>
 
       {currentUser && (
@@ -172,5 +199,4 @@ export default function AppClient() {
     </div>
   );
 }
-
 
