@@ -5,12 +5,14 @@ import { useVideoSocket } from '@/lib/useVideoSocket';
 import { getIceServers } from '@/lib/webrtcConfig';
 
 function VideoChat({
-  currentUser,
   socket: externalSocket,
   socketConnected: externalConnected,
   encounterMatch,
   onConsumeEncounterMatch,
   onExit,
+  layoutMode = 'full',
+  floatingPos = { x: 12, y: 12 },
+  onFloatingPosChange = () => {},
 }) {
   const { socket: hookSocket, connected: hookConnected } = useVideoSocket(!externalSocket);
   const socket = externalSocket || hookSocket;
@@ -33,6 +35,7 @@ function VideoChat({
   const connectedConfirmedRef = useRef(false);
   const terminalIceFailureReportedRef = useRef(false);
   const disconnectedTimerRef = useRef(null);
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, origin: floatingPos });
 
   const testMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('videoTest');
   const emitDiagnostic = useCallback((stage, status, message, meta = null, explicitCallId = null) => {
@@ -78,6 +81,68 @@ function VideoChat({
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
+
+  useEffect(() => {
+    dragRef.current.origin = floatingPos;
+  }, [floatingPos]);
+
+  const clampFloating = useCallback((x, y) => {
+    if (typeof window === 'undefined') return { x, y };
+    const shellWidth = Math.min(420, window.innerWidth * 0.92);
+    const shellHeight = Math.max(240, Math.min(560, window.innerHeight * 0.7));
+    const maxX = Math.max(0, window.innerWidth - shellWidth - 8);
+    const maxY = Math.max(0, window.innerHeight - shellHeight - 8);
+    return {
+      x: Math.min(Math.max(8, x), maxX),
+      y: Math.min(Math.max(8, y), maxY),
+    };
+  }, []);
+
+  const startDrag = useCallback(
+    (event) => {
+      if (layoutMode !== 'floating') return;
+      const pt = event.touches ? event.touches[0] : event;
+      dragRef.current = {
+        active: true,
+        startX: pt.clientX,
+        startY: pt.clientY,
+        origin: floatingPos,
+      };
+    },
+    [layoutMode, floatingPos]
+  );
+
+  const onDragMove = useCallback(
+    (event) => {
+      if (!dragRef.current.active || layoutMode !== 'floating') return;
+      const pt = event.touches ? event.touches[0] : event;
+      const dx = pt.clientX - dragRef.current.startX;
+      const dy = pt.clientY - dragRef.current.startY;
+      const next = clampFloating(dragRef.current.origin.x + dx, dragRef.current.origin.y + dy);
+      onFloatingPosChange(next);
+    },
+    [layoutMode, clampFloating, onFloatingPosChange]
+  );
+
+  const endDrag = useCallback(() => {
+    dragRef.current.active = false;
+  }, []);
+
+  useEffect(() => {
+    if (layoutMode !== 'floating') return undefined;
+    const handleMove = (e) => onDragMove(e);
+    const handleEnd = () => endDrag();
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchend', handleEnd);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, [layoutMode, onDragMove, endDrag]);
 
   const ensureLocalStream = useCallback(async () => {
     if (localStreamRef.current) {
@@ -345,17 +410,27 @@ function VideoChat({
   }
 
   return (
-    <div className="video-shell">
+    <div
+      className={`video-shell ${layoutMode === 'floating' ? 'floating' : 'full'}`}
+      style={layoutMode === 'floating' ? { left: 0, top: 0, transform: 'none' } : undefined}
+      onMouseDown={startDrag}
+      onTouchStart={startDrag}
+    >
+      {layoutMode === 'floating' && <div className="video-drag-handle" role="presentation" />}
       <div className={`video-vertical ${isMobile ? 'mobile' : ''}`}>
         <div className="video-remote-pane">
-          <video ref={remoteVideoRef} autoPlay playsInline className="video-remote" />
-          <div className="video-overlay">
-            <span className="muted">{peer?.name || 'Remote user'}</span>
+          <div className="video-frame remote">
+            <video ref={remoteVideoRef} autoPlay playsInline className="video-remote" />
+            <div className="video-overlay">
+              <span className="muted">{peer?.name || 'Remote user'}</span>
+            </div>
           </div>
         </div>
         <div className="video-local-pane">
-          <video ref={localVideoRef} autoPlay muted playsInline className="video-local" />
-          <span className="muted">You</span>
+          <div className="video-frame local">
+            <video ref={localVideoRef} autoPlay muted playsInline className="video-local" />
+          </div>
+          <span className="video-self-label muted">You</span>
         </div>
       </div>
       <div className="video-controls-stack">

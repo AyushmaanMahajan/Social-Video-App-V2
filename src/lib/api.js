@@ -84,4 +84,27 @@ export const getChatStatus = async (targetUserId) => {
   return data;
 };
 
+export const getMessages = async (targetUserId, encounterId) => {
+  const params = { targetUserId };
+  if (encounterId) params.encounterId = encounterId;
+  const { data } = await axios.get('/api/interactions/messages', { params });
+  return data?.messages || [];
+};
+
+export const getPresenceStatus = async (ids = []) => {
+  if (!ids.length) return [];
+  const { data } = await axios.get('/api/presence/status', { params: { ids: ids.join(',') } });
+  return data?.statuses || [];
+};
+
+export const getPresenceVisibility = async () => {
+  const { data } = await axios.get('/api/presence/visibility');
+  return data?.showStatus ?? true;
+};
+
+export const setPresenceVisibility = async (showStatus) => {
+  const { data } = await axios.post('/api/presence/visibility', { showStatus });
+  return data?.showStatus ?? showStatus;
+};
+
 export { getToken, setToken, removeToken };

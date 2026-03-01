@@ -8,7 +8,8 @@ import {
   getPassedEncounterProfiles,
   restorePassedEncounterProfiles,
 } from '@/lib/api';
-import VideoChat from './VideoChat';
+
+const noop = () => {};
 
 const ENCOUNTER_SECONDS = 30;
 const SESSION_PASS_RESET_KEY = 'encounter-pass-reset-v1';
@@ -78,14 +79,12 @@ function InlineProfile({ profile }) {
   );
 }
 
-export default function Encounter({ socket, socketConnected, currentUser }) {
+export default function Encounter({ socket, socketConnected, onEncounterMatch = noop }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(ENCOUNTER_SECONDS);
   const [requesting, setRequesting] = useState(false);
-  const [encounterMatch, setEncounterMatch] = useState(null);
-  const [inVideo, setInVideo] = useState(false);
   const [passedProfiles, setPassedProfiles] = useState([]);
   const [showPassedList, setShowPassedList] = useState(false);
   const [restoringPassed, setRestoringPassed] = useState(false);
@@ -124,8 +123,6 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
     setLoading(true);
     setStatusMessage('');
     setRequesting(false);
-    setEncounterMatch(null);
-    setInVideo(false);
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -262,8 +259,7 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
       pendingConnectRef.current = false;
       setStatusMessage('Connection established. Starting video.');
       setRequesting(false);
-      setEncounterMatch(payload);
-      setInVideo(true);
+      onEncounterMatch(payload);
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -294,7 +290,7 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
       socket.off('connect', onSocketConnect);
       socket.off('connect_error', onSocketConnectError);
     };
-  }, [socket, loadNext, profile, sendEncounterRequest]);
+  }, [socket, loadNext, profile, sendEncounterRequest, onEncounterMatch]);
 
   useEffect(() => {
     if (!socket || !socketConnected) return () => {};
@@ -310,25 +306,6 @@ export default function Encounter({ socket, socketConnected, currentUser }) {
   }, []);
 
   const progress = useMemo(() => (secondsLeft / ENCOUNTER_SECONDS) * 100, [secondsLeft]);
-
-  const handleVideoEnd = () => {
-    setInVideo(false);
-    setEncounterMatch(null);
-    loadNext();
-  };
-
-  if (inVideo) {
-    return (
-      <VideoChat
-        currentUser={currentUser}
-        socket={socket}
-        socketConnected={socketConnected}
-        encounterMatch={encounterMatch}
-        onConsumeEncounterMatch={() => setEncounterMatch(null)}
-        onExit={handleVideoEnd}
-      />
-    );
-  }
 
   if (loading) {
     return <div className="encounter-shell">Loading encounters...</div>;

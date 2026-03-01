@@ -25,6 +25,31 @@ const userInEncounter = new Map();
 /** Pair keys currently being matched to avoid duplicate call creation */
 const matchingEncounterPairs = new Set();
 
+function broadcastPresence(videoNs) {
+  pool
+    .query('SELECT user_id FROM user_presence WHERE online = true AND show_status = true')
+    .then((res) => {
+      const ids = res.rows.map((r) => Number(r.user_id));
+      videoNs.emit('presence-update', ids);
+    })
+    .catch(() => {});
+}
+
+async function setPresence(userId, { online = null, showStatus = null } = {}) {
+  await pool.query(
+    `
+    INSERT INTO user_presence (user_id, online, show_status, updated_at)
+    VALUES ($1, COALESCE($2, false), COALESCE($3, true), NOW())
+    ON CONFLICT (user_id)
+    DO UPDATE SET
+      online = COALESCE($2, user_presence.online),
+      show_status = COALESCE($3, user_presence.show_status),
+      updated_at = NOW()
+    `,
+    [userId, online, showStatus]
+  );
+}
+
 function addUserSocket(userId, socketId) {
   const numericUserId = Number(userId);
   const current = userSockets.get(numericUserId) || new Set();
@@ -183,6 +208,18 @@ async function isChatMutual(userId, targetUserId) {
   return row.me_enabled && row.them_enabled;
 }
 
+async function persistEncounterMessage(senderId, receiverId, encounterId, messageText) {
+  const res = await pool.query(
+    `
+    INSERT INTO encounter_messages (sender_id, receiver_id, encounter_id, message_text)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, created_at
+    `,
+    [senderId, receiverId, encounterId || null, messageText]
+  );
+  return res.rows[0] || null;
+}
+
 async function getUserNames(userIds = []) {
   if (!userIds.length) return new Map();
   const res = await pool.query('SELECT id, name FROM users WHERE id = ANY($1)', [userIds]);
@@ -279,6 +316,9 @@ function registerVideoNamespace(io) {
     const userId = socket.userId;
     socket.join(`user:${userId}`);
     addUserSocket(userId, socket.id);
+    setPresence(userId, { online: true })
+      .then(() => broadcastPresence(videoNs))
+      .catch(() => {});
     logVideoStage({
       stage: 'socket_presence',
       status: 'info',
@@ -523,13 +563,35 @@ function registerVideoNamespace(io) {
     });
 
     socket.on('chat-message', async (payload) => {
-      const { targetUserId, text } = payload || {};
-      if (!targetUserId || !text) return;
-      const allowed = await isChatMutual(userId, Number(targetUserId));
+      const { targetUserId, text, encounterId } = payload || {};
+      if (!targetUserId || typeof text !== 'string') return;
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const numericTarget = Number(targetUserId);
+      const normalizedEncounterId =
+        encounterId !== undefined && encounterId !== null && Number.isFinite(Number(encounterId))
+          ? Number(encounterId)
+          : null;
+      const allowed = await isChatMutual(userId, numericTarget);
       if (!allowed) {
-        return socket.emit('error', { message: 'Chat not unlocked' });
+        return socket.emit('chat-locked', { peerId: numericTarget });
       }
-      videoNs.to(`user:${targetUserId}`).emit('chat-message', { fromUserId: userId, text });
+      let saved = null;
+      try {
+        saved = await persistEncounterMessage(userId, numericTarget, normalizedEncounterId, trimmed);
+      } catch (e) {
+        console.error('chat-message persist error', e);
+      }
+      const outbound = {
+        id: saved?.id || null,
+        fromUserId: userId,
+        toUserId: numericTarget,
+        text: trimmed,
+        encounterId: normalizedEncounterId,
+        createdAt: saved?.created_at || new Date().toISOString(),
+      };
+      videoNs.to(`user:${numericTarget}`).emit('chat-message', outbound);
+      socket.emit('chat-message', outbound);
     });
 
     socket.on('chat-toggle', async (payload) => {
@@ -546,6 +608,9 @@ function registerVideoNamespace(io) {
           [userId, targetUserId, enabled]
         );
         const mutual = await isChatMutual(userId, Number(targetUserId));
+        if (enabled) {
+          videoNs.to(`user:${targetUserId}`).emit('chat-peer-enabled', { peerId: Number(userId) });
+        }
         if (mutual) {
           videoNs.to(`user:${userId}`).emit('chat-unlocked', { peerId: Number(targetUserId) });
           videoNs.to(`user:${targetUserId}`).emit('chat-unlocked', { peerId: Number(userId) });
@@ -592,6 +657,9 @@ function registerVideoNamespace(io) {
         meta: { activeSockets: remainingSockets },
       });
       if (remainingSockets > 0) return;
+      setPresence(userId, { online: false })
+        .then(() => broadcastPresence(videoNs))
+        .catch(() => {});
       const my = userInCall.get(userId);
       if (my) {
         clearCallStateForPair(userId, my.peerId);

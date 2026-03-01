@@ -16,7 +16,10 @@ export async function GET(request) {
       `
       SELECT u.id, u.name, u.age, u.location, u.about, u.currently_into, u.ask_me_about, u.created_at
       FROM users u
+      LEFT JOIN user_presence up ON up.user_id = u.id
       WHERE u.id <> $1
+        AND COALESCE(up.online, false) = true
+        AND COALESCE(up.show_status, true) = true
         AND NOT EXISTS (
           SELECT 1 FROM reports r WHERE r.reporter_id = $1 AND r.reported_user_id = u.id
         )
