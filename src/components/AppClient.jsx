@@ -26,6 +26,7 @@ export default function AppClient() {
   const [lastPageBeforeCall, setLastPageBeforeCall] = useState('encounter');
   const { socket, connected: socketConnected } = useVideoSocket();
   const [onlineIds, setOnlineIds] = useState([]);
+  const [floatPos, setFloatPos] = useState({ x: 12, y: 12 });
 
   useEffect(() => {
     document.body.classList.add('dark-mode');
@@ -104,6 +105,12 @@ export default function AppClient() {
               setActiveEncounterMatch(payload);
               setLastPageBeforeCall(currentPage);
               setVideoActive(true);
+              if (typeof window !== 'undefined') {
+                setFloatPos({
+                  x: Math.max(12, window.innerWidth - 360),
+                  y: Math.max(12, window.innerHeight - 260),
+                });
+              }
             }}
           />
         )}
@@ -138,7 +145,14 @@ export default function AppClient() {
       )}
 
       {currentUser && videoActive && (
-        <div className={`video-host ${currentPage !== 'encounter' ? 'floating' : 'full'}`}>
+        <div
+          className={`video-host ${currentPage !== 'encounter' ? 'floating' : 'full'}`}
+          style={
+            currentPage !== 'encounter'
+              ? { left: floatPos.x, top: floatPos.y, right: 'auto', bottom: 'auto' }
+              : undefined
+          }
+        >
           <VideoChat
             socket={socket}
             socketConnected={socketConnected}
@@ -150,6 +164,8 @@ export default function AppClient() {
               setCurrentPage(lastPageBeforeCall || 'encounter');
             }}
             layoutMode={currentPage !== 'encounter' ? 'floating' : 'full'}
+            floatingPos={floatPos}
+            onFloatingPosChange={setFloatPos}
           />
         </div>
       )}

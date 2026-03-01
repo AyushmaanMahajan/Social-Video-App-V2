@@ -11,6 +11,8 @@ function VideoChat({
   onConsumeEncounterMatch,
   onExit,
   layoutMode = 'full',
+  floatingPos = { x: 12, y: 12 },
+  onFloatingPosChange = () => {},
 }) {
   const { socket: hookSocket, connected: hookConnected } = useVideoSocket(!externalSocket);
   const socket = externalSocket || hookSocket;
@@ -33,6 +35,7 @@ function VideoChat({
   const connectedConfirmedRef = useRef(false);
   const terminalIceFailureReportedRef = useRef(false);
   const disconnectedTimerRef = useRef(null);
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, origin: floatingPos });
 
   const testMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('videoTest');
   const emitDiagnostic = useCallback((stage, status, message, meta = null, explicitCallId = null) => {
@@ -78,6 +81,47 @@ function VideoChat({
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
+
+  useEffect(() => {
+    dragRef.current.origin = floatingPos;
+  }, [floatingPos]);
+
+  const clampFloating = useCallback(
+    (x, y) => {
+      if (typeof window === 'undefined') return { x, y };
+      const maxX = Math.max(0, window.innerWidth - 260);
+      const maxY = Math.max(0, window.innerHeight - 200);
+      return {
+        x: Math.min(Math.max(8, x), maxX),
+        y: Math.min(Math.max(8, y), maxY),
+      };
+    },
+    []
+  );
+
+  const startDrag = (event) => {
+    if (layoutMode !== 'floating') return;
+    const pt = event.touches ? event.touches[0] : event;
+    dragRef.current = {
+      active: true,
+      startX: pt.clientX,
+      startY: pt.clientY,
+      origin: floatingPos,
+    };
+  };
+
+  const onDragMove = (event) => {
+    if (!dragRef.current.active || layoutMode !== 'floating') return;
+    const pt = event.touches ? event.touches[0] : event;
+    const dx = pt.clientX - dragRef.current.startX;
+    const dy = pt.clientY - dragRef.current.startY;
+    const next = clampFloating(dragRef.current.origin.x + dx, dragRef.current.origin.y + dy);
+    onFloatingPosChange(next);
+  };
+
+  const endDrag = () => {
+    dragRef.current.active = false;
+  };
 
   const ensureLocalStream = useCallback(async () => {
     if (localStreamRef.current) {
@@ -345,7 +389,22 @@ function VideoChat({
   }
 
   return (
-    <div className={`video-shell ${layoutMode === 'floating' ? 'floating' : 'full'}`}>
+    <div
+      className={`video-shell ${layoutMode === 'floating' ? 'floating' : 'full'}`}
+      style={layoutMode === 'floating' ? { left: 0, top: 0, transform: 'none' } : undefined}
+      onMouseMove={onDragMove}
+      onMouseUp={endDrag}
+      onTouchMove={onDragMove}
+      onTouchEnd={endDrag}
+    >
+      {layoutMode === 'floating' && (
+        <div
+          className="video-drag-handle"
+          onMouseDown={startDrag}
+          onTouchStart={startDrag}
+          role="presentation"
+        />
+      )}
       <div className={`video-vertical ${isMobile ? 'mobile' : ''}`}>
         <div className="video-remote-pane">
           <div className="video-frame remote">
