@@ -140,3 +140,9 @@ CREATE TABLE IF NOT EXISTS user_presence (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_user_presence_online ON user_presence(online);
+
+
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS photos TEXT[] DEFAULT '{}';
+

@@ -17,7 +17,12 @@ const ProfileContent = forwardRef(({ profile }, ref) => {
             <div className="profile-flow">
               {photos[0] && (
                 <div className="profile-inline-photo">
-                  <img src={photos[0]} alt={`${profile.name} photo 1`} />
+                  <img
+                    className="profile-photo-media"
+                    src={photos[0]}
+                    alt={`${profile.name} photo 1`}
+                    loading="lazy"
+                  />
                 </div>
               )}
 
@@ -29,7 +34,12 @@ const ProfileContent = forwardRef(({ profile }, ref) => {
                   </div>
                   {photos[index + 1] && (
                     <div className="profile-inline-photo">
-                      <img src={photos[index + 1]} alt={`${profile.name} photo ${index + 2}`} />
+                      <img
+                        className="profile-photo-media"
+                        src={photos[index + 1]}
+                        alt={`${profile.name} photo ${index + 2}`}
+                        loading="lazy"
+                      />
                     </div>
                   )}
                 </React.Fragment>
@@ -37,7 +47,12 @@ const ProfileContent = forwardRef(({ profile }, ref) => {
 
               {prompts.length === 0 && photos.slice(1).map((photo, index) => (
                 <div key={`photo-only-${index + 2}`} className="profile-inline-photo">
-                  <img src={photo} alt={`${profile.name} photo ${index + 2}`} />
+                  <img
+                    className="profile-photo-media"
+                    src={photo}
+                    alt={`${profile.name} photo ${index + 2}`}
+                    loading="lazy"
+                  />
                 </div>
               ))}
             </div>

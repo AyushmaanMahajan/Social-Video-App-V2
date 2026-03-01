@@ -1,6 +1,6 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import PhotoGridEditor from './PhotoGridEditor';
+import React, { useState } from 'react';
+import PhotoUploader from './PhotoUploader';
 import PromptEditor from './PromptEditor';
 import ThemeSelector from './ThemeSelector';
 
@@ -68,7 +68,7 @@ function EditProfileModal({ user, onClose, onSave }) {
           {/* Identity Layer */}
           <div className="edit-section">
             <h3 className="section-label">Photos</h3>
-            <PhotoGridEditor
+            <PhotoUploader
               photos={formData.photos}
               onChange={(photos) => handleChange('photos', photos)}
             />

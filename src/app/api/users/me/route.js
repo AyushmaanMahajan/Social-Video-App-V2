@@ -42,22 +42,42 @@ export async function PUT(request) {
 
   try {
     const body = await request.json();
-    const name = body.name;
-    const age = body.age;
-    const location = body.location;
-    const about = body.about;
-    const currently_into = body.currently_into ?? body.currentlyInto;
-    const ask_me_about = body.ask_me_about ?? body.askMeAbout;
-    const accent_theme = body.accent_theme ?? body.accentTheme ?? 'cyan';
-    const show_age = body.show_age ?? body.showAge;
-    const show_location = body.show_location ?? body.showLocation;
-    const show_active_status = body.show_active_status ?? body.showActiveStatus;
+    const name = body.name ?? null;
+    const ageInput = body.age;
+    const parsedAge =
+      ageInput === '' || ageInput === null || ageInput === undefined ? Number.NaN : Number(ageInput);
+    const age = Number.isFinite(parsedAge) ? parsedAge : null;
+    const location = body.location ?? null;
+    const about = body.about ?? null;
+    const currently_into = (body.currently_into ?? body.currentlyInto) ?? null;
+    const ask_me_about = (body.ask_me_about ?? body.askMeAbout) ?? null;
+    const accent_theme = (body.accent_theme ?? body.accentTheme) ?? null;
+    const show_age_value = body.show_age ?? body.showAge;
+    const show_age = typeof show_age_value === 'boolean' ? show_age_value : null;
+    const show_location_value = body.show_location ?? body.showLocation;
+    const show_location = typeof show_location_value === 'boolean' ? show_location_value : null;
+    const show_active_status_value = body.show_active_status ?? body.showActiveStatus;
+    const show_active_status = typeof show_active_status_value === 'boolean' ? show_active_status_value : null;
     const photos = body.photos;
     const prompts = body.prompts;
     const interests = body.interests;
 
     await pool.query(
-      'UPDATE users SET name = $1, age = $2, location = $3, about = $4, currently_into = $5, ask_me_about = $6, accent_theme = $7, show_age = $8, show_location = $9, show_active_status = $10 WHERE id = $11',
+      `
+      UPDATE users
+      SET
+        name = COALESCE($1, name),
+        age = COALESCE($2, age),
+        location = COALESCE($3, location),
+        about = COALESCE($4, about),
+        currently_into = COALESCE($5, currently_into),
+        ask_me_about = COALESCE($6, ask_me_about),
+        accent_theme = COALESCE($7, accent_theme),
+        show_age = COALESCE($8, show_age),
+        show_location = COALESCE($9, show_location),
+        show_active_status = COALESCE($10, show_active_status)
+      WHERE id = $11
+      `,
       [
         name,
         age,
@@ -66,14 +86,14 @@ export async function PUT(request) {
         currently_into,
         ask_me_about,
         accent_theme,
-        show_age !== false,
-        show_location !== false,
-        show_active_status !== false,
+        show_age,
+        show_location,
+        show_active_status,
         userId,
       ]
     );
 
-    if (photos) {
+    if (Array.isArray(photos)) {
       await pool.query('DELETE FROM photos WHERE user_id = $1', [userId]);
       for (let i = 0; i < photos.length; i++) {
         await pool.query('INSERT INTO photos (user_id, url, order_index) VALUES ($1, $2, $3)', [
@@ -84,7 +104,7 @@ export async function PUT(request) {
       }
     }
 
-    if (prompts) {
+    if (Array.isArray(prompts)) {
       await pool.query('DELETE FROM prompts WHERE user_id = $1', [userId]);
       for (let i = 0; i < prompts.length; i++) {
         await pool.query(
@@ -94,7 +114,7 @@ export async function PUT(request) {
       }
     }
 
-    if (interests) {
+    if (Array.isArray(interests)) {
       await pool.query('DELETE FROM interests WHERE user_id = $1', [userId]);
       for (const interest of interests) {
         await pool.query('INSERT INTO interests (user_id, label) VALUES ($1, $2)', [userId, interest]);
