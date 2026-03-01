@@ -25,6 +25,11 @@ const userInEncounter = new Map();
 /** Pair keys currently being matched to avoid duplicate call creation */
 const matchingEncounterPairs = new Set();
 
+function broadcastPresence(videoNs) {
+  const onlineUserIds = Array.from(userSockets.keys());
+  videoNs.emit('presence-update', onlineUserIds);
+}
+
 function addUserSocket(userId, socketId) {
   const numericUserId = Number(userId);
   const current = userSockets.get(numericUserId) || new Set();
@@ -291,6 +296,7 @@ function registerVideoNamespace(io) {
     const userId = socket.userId;
     socket.join(`user:${userId}`);
     addUserSocket(userId, socket.id);
+    broadcastPresence(videoNs);
     logVideoStage({
       stage: 'socket_presence',
       status: 'info',
@@ -629,6 +635,7 @@ function registerVideoNamespace(io) {
         meta: { activeSockets: remainingSockets },
       });
       if (remainingSockets > 0) return;
+      broadcastPresence(videoNs);
       const my = userInCall.get(userId);
       if (my) {
         clearCallStateForPair(userId, my.peerId);

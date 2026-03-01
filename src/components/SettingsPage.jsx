@@ -1,14 +1,12 @@
 'use client';
 import React from 'react';
+import { useRouter } from 'next/navigation';
 
 function SettingsPage({ onEditProfile, onClose }) {
+  const router = useRouter();
   const menuItems = [
     { label: 'Edit Profile', action: onEditProfile },
-    { label: 'Account Info', action: () => alert('Account info') },
-    { label: 'Privacy Controls', action: () => alert('Privacy controls') },
-    { label: 'Notifications', action: () => alert('Notifications') },
-    { label: 'Support', action: () => alert('Support') },
-    { label: 'Community Guidelines', action: () => alert('Guidelines') },
+    { label: 'Support', action: () => { router.push('/support'); onClose(); } },
   ];
 
   return (

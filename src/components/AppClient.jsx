@@ -25,6 +25,7 @@ export default function AppClient() {
   const [videoActive, setVideoActive] = useState(false);
   const [lastPageBeforeCall, setLastPageBeforeCall] = useState('encounter');
   const { socket, connected: socketConnected } = useVideoSocket();
+  const [onlineIds, setOnlineIds] = useState([]);
 
   useEffect(() => {
     document.body.classList.add('dark-mode');
@@ -34,6 +35,15 @@ export default function AppClient() {
       if (path.includes('/profile')) setCurrentPage('profile');
     }
   }, []);
+
+  useEffect(() => {
+    if (!socket) return () => {};
+    const handler = (list) => {
+      setOnlineIds((Array.isArray(list) ? list : []).map((id) => Number(id)));
+    };
+    socket.on('presence-update', handler);
+    return () => socket.off('presence-update', handler);
+  }, [socket]);
 
   const handleProfileCreated = (user) => {
     setCurrentUser(user);
@@ -102,6 +112,7 @@ export default function AppClient() {
           <Interactions
             socket={socket}
             socketConnected={socketConnected}
+            onlineIds={onlineIds}
           />
         )}
 

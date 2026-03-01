@@ -3501,6 +3501,7 @@ body.dark-mode {
   display: flex;
   flex-direction: column;
   animation: slideInUp 0.3s ease;
+  position: relative;
 }
 
 .settings-content {

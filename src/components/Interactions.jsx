@@ -10,7 +10,7 @@ function StatusBadge({ status }) {
   return <span className={`badge ${tone}`}>{label}</span>;
 }
 
-export default function Interactions({ socket, socketConnected }) {
+export default function Interactions({ socket, socketConnected, onlineIds = [] }) {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
@@ -166,10 +166,21 @@ export default function Interactions({ socket, socketConnected }) {
     }
   };
 
+  useEffect(() => {
+    if (!selected) return;
+    if (onlineIds.length && !onlineIds.includes(selected.otherUserId)) {
+      setSelected(null);
+      setMessages([]);
+    }
+  }, [onlineIds, selected]);
+
   const filteredItems = useMemo(() => {
-    if (!search) return items;
-    return items.filter((i) => i.user.name.toLowerCase().includes(search.toLowerCase()));
-  }, [items, search]);
+    const base = search
+      ? items.filter((i) => i.user.name.toLowerCase().includes(search.toLowerCase()))
+      : items;
+    if (!onlineIds.length) return base;
+    return base.filter((i) => onlineIds.includes(i.otherUserId));
+  }, [items, search, onlineIds]);
 
   return (
     <div className="interactions-page">
