@@ -60,6 +60,7 @@ export default function AppClient() {
     if (!token) {
       window.localStorage.removeItem(USER_CACHE_KEY);
       setAuthReady(true);
+      setAuthBootstrapping(false);
       return () => {};
     }
 
@@ -80,6 +81,7 @@ export default function AppClient() {
         setCurrentUser(me);
         window.localStorage.setItem(USER_CACHE_KEY, JSON.stringify(me));
         setAuthReady(true);
+        setAuthBootstrapping(false);
       } catch (error) {
         if (cancelled) return;
         if (error?.response?.status === 401) {
@@ -88,6 +90,7 @@ export default function AppClient() {
           setCurrentUser(null);
         }
         setAuthReady(true);
+        setAuthBootstrapping(false);
       }
     })();
 
