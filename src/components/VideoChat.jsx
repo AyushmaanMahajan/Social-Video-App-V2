@@ -86,42 +86,63 @@ function VideoChat({
     dragRef.current.origin = floatingPos;
   }, [floatingPos]);
 
-  const clampFloating = useCallback(
-    (x, y) => {
-      if (typeof window === 'undefined') return { x, y };
-      const maxX = Math.max(0, window.innerWidth - 260);
-      const maxY = Math.max(0, window.innerHeight - 200);
-      return {
-        x: Math.min(Math.max(8, x), maxX),
-        y: Math.min(Math.max(8, y), maxY),
+  const clampFloating = useCallback((x, y) => {
+    if (typeof window === 'undefined') return { x, y };
+    const shellWidth = Math.min(420, window.innerWidth * 0.92);
+    const shellHeight = Math.max(240, Math.min(560, window.innerHeight * 0.7));
+    const maxX = Math.max(0, window.innerWidth - shellWidth - 8);
+    const maxY = Math.max(0, window.innerHeight - shellHeight - 8);
+    return {
+      x: Math.min(Math.max(8, x), maxX),
+      y: Math.min(Math.max(8, y), maxY),
+    };
+  }, []);
+
+  const startDrag = useCallback(
+    (event) => {
+      if (layoutMode !== 'floating') return;
+      const pt = event.touches ? event.touches[0] : event;
+      dragRef.current = {
+        active: true,
+        startX: pt.clientX,
+        startY: pt.clientY,
+        origin: floatingPos,
       };
     },
-    []
+    [layoutMode, floatingPos]
   );
 
-  const startDrag = (event) => {
-    if (layoutMode !== 'floating') return;
-    const pt = event.touches ? event.touches[0] : event;
-    dragRef.current = {
-      active: true,
-      startX: pt.clientX,
-      startY: pt.clientY,
-      origin: floatingPos,
-    };
-  };
+  const onDragMove = useCallback(
+    (event) => {
+      if (!dragRef.current.active || layoutMode !== 'floating') return;
+      const pt = event.touches ? event.touches[0] : event;
+      const dx = pt.clientX - dragRef.current.startX;
+      const dy = pt.clientY - dragRef.current.startY;
+      const next = clampFloating(dragRef.current.origin.x + dx, dragRef.current.origin.y + dy);
+      onFloatingPosChange(next);
+    },
+    [layoutMode, clampFloating, onFloatingPosChange]
+  );
 
-  const onDragMove = (event) => {
-    if (!dragRef.current.active || layoutMode !== 'floating') return;
-    const pt = event.touches ? event.touches[0] : event;
-    const dx = pt.clientX - dragRef.current.startX;
-    const dy = pt.clientY - dragRef.current.startY;
-    const next = clampFloating(dragRef.current.origin.x + dx, dragRef.current.origin.y + dy);
-    onFloatingPosChange(next);
-  };
-
-  const endDrag = () => {
+  const endDrag = useCallback(() => {
     dragRef.current.active = false;
-  };
+  }, []);
+
+  useEffect(() => {
+    if (layoutMode !== 'floating') return undefined;
+    const handleMove = (e) => onDragMove(e);
+    const handleEnd = () => endDrag();
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchend', handleEnd);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, [layoutMode, onDragMove, endDrag]);
 
   const ensureLocalStream = useCallback(async () => {
     if (localStreamRef.current) {
@@ -392,19 +413,10 @@ function VideoChat({
     <div
       className={`video-shell ${layoutMode === 'floating' ? 'floating' : 'full'}`}
       style={layoutMode === 'floating' ? { left: 0, top: 0, transform: 'none' } : undefined}
-      onMouseMove={onDragMove}
-      onMouseUp={endDrag}
-      onTouchMove={onDragMove}
-      onTouchEnd={endDrag}
+      onMouseDown={startDrag}
+      onTouchStart={startDrag}
     >
-      {layoutMode === 'floating' && (
-        <div
-          className="video-drag-handle"
-          onMouseDown={startDrag}
-          onTouchStart={startDrag}
-          role="presentation"
-        />
-      )}
+      {layoutMode === 'floating' && <div className="video-drag-handle" role="presentation" />}
       <div className={`video-vertical ${isMobile ? 'mobile' : ''}`}>
         <div className="video-remote-pane">
           <div className="video-frame remote">

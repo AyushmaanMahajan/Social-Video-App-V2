@@ -91,4 +91,20 @@ export const getMessages = async (targetUserId, encounterId) => {
   return data?.messages || [];
 };
 
+export const getPresenceStatus = async (ids = []) => {
+  if (!ids.length) return [];
+  const { data } = await axios.get('/api/presence/status', { params: { ids: ids.join(',') } });
+  return data?.statuses || [];
+};
+
+export const getPresenceVisibility = async () => {
+  const { data } = await axios.get('/api/presence/visibility');
+  return data?.showStatus ?? true;
+};
+
+export const setPresenceVisibility = async (showStatus) => {
+  const { data } = await axios.post('/api/presence/visibility', { showStatus });
+  return data?.showStatus ?? showStatus;
+};
+
 export { getToken, setToken, removeToken };

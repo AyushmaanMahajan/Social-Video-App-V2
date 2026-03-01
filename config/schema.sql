@@ -131,3 +131,12 @@ CREATE TABLE IF NOT EXISTS encounter_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_encounter_messages_pair ON encounter_messages(sender_id, receiver_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_encounter_messages_encounter ON encounter_messages(encounter_id, created_at);
+
+-- Presence (online + visibility)
+CREATE TABLE IF NOT EXISTS user_presence (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  online BOOLEAN DEFAULT FALSE,
+  show_status BOOLEAN DEFAULT TRUE,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_user_presence_online ON user_presence(online);

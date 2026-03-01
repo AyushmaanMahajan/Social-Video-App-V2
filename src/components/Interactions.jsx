@@ -1,7 +1,15 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { getInteractions, toggleChat, getChatStatus, getMessages } from '@/lib/api';
+import {
+  getInteractions,
+  toggleChat,
+  getChatStatus,
+  getMessages,
+  getPresenceStatus,
+  getPresenceVisibility,
+  setPresenceVisibility,
+} from '@/lib/api';
 
 function StatusBadge({ status }) {
   const label = status === 'connected' ? 'Connected' : status === 'skipped' ? 'Skipped' : 'Missed';
@@ -20,6 +28,8 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [statuses, setStatuses] = useState(new Map());
+  const [showStatus, setShowStatus] = useState(true);
 
   const load = async () => {
     try {
@@ -35,6 +45,12 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
+
+  useEffect(() => {
+    getPresenceVisibility()
+      .then((value) => setShowStatus(Boolean(value)))
+      .catch(() => setShowStatus(true));
+  }, []);
 
   const selectedId = selected?.otherUserId;
   const selectedEncounterId = selected?.id || null;
@@ -167,20 +183,31 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
   };
 
   useEffect(() => {
-    if (!selected) return;
-    if (onlineIds.length && !onlineIds.includes(selected.otherUserId)) {
-      setSelected(null);
-      setMessages([]);
-    }
-  }, [onlineIds, selected]);
+    const otherIds = items.map((i) => i.otherUserId);
+    if (!otherIds.length) return;
+    getPresenceStatus(otherIds)
+      .then((rows) => {
+        const map = new Map();
+        rows.forEach((r) => map.set(Number(r.userId), { online: r.online, showStatus: r.showStatus }));
+        setStatuses(map);
+      })
+      .catch(() => {});
+  }, [items]);
 
   const filteredItems = useMemo(() => {
     const base = search
       ? items.filter((i) => i.user.name.toLowerCase().includes(search.toLowerCase()))
       : items;
-    if (!onlineIds.length) return base;
-    return base.filter((i) => onlineIds.includes(i.otherUserId));
-  }, [items, search, onlineIds]);
+    return base;
+  }, [items, search]);
+
+  const isOnline = (userId) => {
+    const status = statuses.get(userId);
+    if (status) {
+      return status.showStatus && status.online;
+    }
+    return onlineIds.includes(userId);
+  };
 
   return (
     <div className="interactions-page">
@@ -196,6 +223,24 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+        <div className="presence-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={showStatus}
+              onChange={async (e) => {
+                const next = e.target.checked;
+                setShowStatus(next);
+                try {
+                  await setPresenceVisibility(next);
+                } catch {
+                  // ignore
+                }
+              }}
+            />
+            Show my online status
+          </label>
         </div>
       </div>
 
@@ -215,7 +260,10 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
                 {item.user.photo ? <img src={item.user.photo} alt={item.user.name} /> : <div className="avatar-fallback" />}
               </div>
               <div className="interaction-info">
-                <p className="name">{item.user.name}</p>
+                <p className="name">
+                  <span className={`status-dot ${isOnline(item.otherUserId) ? 'online' : 'offline'}`} aria-label={isOnline(item.otherUserId) ? 'Online' : 'Offline'} />
+                  {item.user.name}
+                </p>
                 <p className="meta">Last: {new Date(item.lastInteractionAt).toLocaleString()}</p>
               </div>
               <StatusBadge status={item.status} />

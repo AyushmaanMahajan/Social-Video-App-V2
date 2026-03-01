@@ -442,6 +442,8 @@ body.dark-mode {
   border-radius: 16px;
   padding: 0.75rem;
   position: absolute;
+  touch-action: none;
+  cursor: grab;
 }
 
 .video-vertical {
@@ -525,8 +527,6 @@ body.dark-mode {
   right: 0;
   height: 48px;
   z-index: 4;
-  cursor: grab;
-  touch-action: none;
 }
 
 .connection-text {
@@ -606,6 +606,20 @@ body.dark-mode {
   min-width: 240px;
 }
 
+.presence-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.presence-toggle input {
+  accent-color: var(--primary);
+}
+
 .interactions-body {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -644,11 +658,32 @@ body.dark-mode {
 .interaction-info .name {
   font-weight: 700;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .interaction-info .meta {
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2px solid var(--card-surface);
+}
+
+.status-dot.online {
+  background: #42d17d;
+  box-shadow: 0 0 0 4px rgba(66, 209, 125, 0.12);
+}
+
+.status-dot.offline {
+  background: #6b7280;
+  box-shadow: 0 0 0 4px rgba(107, 114, 128, 0.12);
 }
 
 .interaction-detail {

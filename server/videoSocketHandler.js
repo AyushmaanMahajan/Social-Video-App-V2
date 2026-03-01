@@ -26,8 +26,38 @@ const userInEncounter = new Map();
 const matchingEncounterPairs = new Set();
 
 function broadcastPresence(videoNs) {
-  const onlineUserIds = Array.from(userSockets.keys());
-  videoNs.emit('presence-update', onlineUserIds);
+  pool
+    .query('SELECT user_id FROM user_presence WHERE online = true AND show_status = true')
+    .then((res) => {
+      const ids = res.rows.map((r) => Number(r.user_id));
+      videoNs.emit('presence-update', ids);
+    })
+    .catch(() => {});
+}
+
+async function setPresence(userId, { online = null, showStatus = null } = {}) {
+  const fields = [];
+  const values = [userId];
+  let i = 2;
+  if (online !== null) {
+    fields.push(`online = $${i++}`);
+    values.push(online);
+  }
+  if (showStatus !== null) {
+    fields.push(`show_status = $${i++}`);
+    values.push(showStatus);
+  }
+  if (!fields.length) return;
+  fields.push('updated_at = NOW()');
+  await pool.query(
+    `
+    INSERT INTO user_presence (user_id, ${fields.map((f, idx) => f.split(' = ')[0]).join(', ')})
+    VALUES ($1${fields.map((_, idx) => `,$${idx + 2}`).join('')})
+    ON CONFLICT (user_id)
+    DO UPDATE SET ${fields.join(', ')}
+    `,
+    values
+  );
 }
 
 function addUserSocket(userId, socketId) {
@@ -296,7 +326,9 @@ function registerVideoNamespace(io) {
     const userId = socket.userId;
     socket.join(`user:${userId}`);
     addUserSocket(userId, socket.id);
-    broadcastPresence(videoNs);
+    setPresence(userId, { online: true })
+      .then(() => broadcastPresence(videoNs))
+      .catch(() => {});
     logVideoStage({
       stage: 'socket_presence',
       status: 'info',
@@ -635,7 +667,9 @@ function registerVideoNamespace(io) {
         meta: { activeSockets: remainingSockets },
       });
       if (remainingSockets > 0) return;
-      broadcastPresence(videoNs);
+      setPresence(userId, { online: false })
+        .then(() => broadcastPresence(videoNs))
+        .catch(() => {});
       const my = userInCall.get(userId);
       if (my) {
         clearCallStateForPair(userId, my.peerId);
