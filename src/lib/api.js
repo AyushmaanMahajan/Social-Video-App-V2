@@ -56,6 +56,7 @@ const removeToken = () => {
 
 axios.interceptors.request.use((config) => {
   const token = getToken();
+  if (!config.headers) config.headers = {};
   if (token) config.headers.Authorization = `Bearer ${token}`;
   config.baseURL = getBaseUrl();
   return config;
@@ -87,7 +88,10 @@ export const resendVerification = async (email) => {
 export const logout = () => removeToken();
 
 export const getCurrentUser = async () => {
-  const { data } = await axios.get('/api/users/me');
+  const token = getToken();
+  const { data } = await axios.get('/api/users/me', {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   return data;
 };
 
