@@ -31,6 +31,17 @@ export const login = async (email, password) => {
   return data;
 };
 
+export const verifyEmail = async (token) => {
+  const { data } = await axios.post('/api/auth/verify-email', { token });
+  if (data.token) setToken(data.token);
+  return data;
+};
+
+export const resendVerification = async (email) => {
+  const { data } = await axios.post('/api/auth/resend-verification', { email });
+  return data;
+};
+
 export const logout = () => removeToken();
 
 export const getCurrentUser = async () => {

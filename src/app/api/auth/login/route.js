@@ -29,6 +29,16 @@ export async function POST(request) {
       return Response.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
+    if (!user.email_verified) {
+      return Response.json(
+        {
+          error: 'Please verify your email before logging in',
+          requiresEmailVerification: true,
+        },
+        { status: 403 }
+      );
+    }
+
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     try {

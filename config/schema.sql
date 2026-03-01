@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  email_verified BOOLEAN DEFAULT FALSE,
+  email_verified_at TIMESTAMP,
   name VARCHAR(100) NOT NULL,
   age INTEGER,
   location VARCHAR(100),
@@ -15,6 +17,20 @@ CREATE TABLE IF NOT EXISTS users (
   show_active_status BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(255) NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_email_verification_user_id ON email_verification_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_verification_token_hash ON email_verification_tokens(token_hash);
 
 -- Photos table
 CREATE TABLE IF NOT EXISTS photos (
