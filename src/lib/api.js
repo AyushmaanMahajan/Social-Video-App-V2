@@ -2,14 +2,56 @@ import axios from 'axios';
 
 const getBaseUrl = () => (typeof window !== 'undefined' ? '' : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
 
-const setToken = (token) => {
-  if (typeof window !== 'undefined') localStorage.setItem('token', token);
+const TOKEN_KEY = 'token';
+
+const getCookieToken = () => {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
 };
 
-const getToken = () => (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+const setCookieToken = (token) => {
+  if (typeof document === 'undefined') return;
+  const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `token=${encodeURIComponent(token)}; Path=/; SameSite=Lax${secure}`;
+};
+
+const removeCookieToken = () => {
+  if (typeof document === 'undefined') return;
+  document.cookie = 'token=; Path=/; Max-Age=0; SameSite=Lax';
+};
+
+const setToken = (token) => {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(TOKEN_KEY, token);
+    } catch {
+      // ignore storage failures; cookie fallback is used
+    }
+  }
+  setCookieToken(token);
+};
+
+const getToken = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(TOKEN_KEY);
+    if (stored) return stored;
+  } catch {
+    // ignore and fallback to cookie
+  }
+  return getCookieToken();
+};
 
 const removeToken = () => {
-  if (typeof window !== 'undefined') localStorage.removeItem('token');
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch {
+      // ignore
+    }
+  }
+  removeCookieToken();
 };
 
 axios.interceptors.request.use((config) => {

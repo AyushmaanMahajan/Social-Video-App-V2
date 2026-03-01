@@ -49,7 +49,8 @@ export default function AppClient() {
         if (!cancelled) setCurrentUser(user);
       } catch (error) {
         if (!cancelled) {
-          if (error?.response?.status === 401) removeToken();
+          const errorMessage = error?.response?.data?.error || '';
+          if (error?.response?.status === 401 && errorMessage === 'Invalid token') removeToken();
           setCurrentUser(null);
         }
       } finally {
@@ -199,4 +200,3 @@ export default function AppClient() {
     </div>
   );
 }
-
