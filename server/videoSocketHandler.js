@@ -36,27 +36,17 @@ function broadcastPresence(videoNs) {
 }
 
 async function setPresence(userId, { online = null, showStatus = null } = {}) {
-  const fields = [];
-  const values = [userId];
-  let i = 2;
-  if (online !== null) {
-    fields.push(`online = $${i++}`);
-    values.push(online);
-  }
-  if (showStatus !== null) {
-    fields.push(`show_status = $${i++}`);
-    values.push(showStatus);
-  }
-  if (!fields.length) return;
-  fields.push('updated_at = NOW()');
   await pool.query(
     `
-    INSERT INTO user_presence (user_id, ${fields.map((f, idx) => f.split(' = ')[0]).join(', ')})
-    VALUES ($1${fields.map((_, idx) => `,$${idx + 2}`).join('')})
+    INSERT INTO user_presence (user_id, online, show_status, updated_at)
+    VALUES ($1, COALESCE($2, false), COALESCE($3, true), NOW())
     ON CONFLICT (user_id)
-    DO UPDATE SET ${fields.join(', ')}
+    DO UPDATE SET
+      online = COALESCE($2, user_presence.online),
+      show_status = COALESCE($3, user_presence.show_status),
+      updated_at = NOW()
     `,
-    values
+    [userId, online, showStatus]
   );
 }
 
