@@ -28,7 +28,12 @@ function ProfileView({ user, onEdit }) {
             <div className="profile-flow">
               {photos[0] && (
                 <div className="profile-inline-photo">
-                  <img src={photos[0]} alt={`${user.name} photo 1`} />
+                  <img
+                    className="profile-photo-media"
+                    src={photos[0]}
+                    alt={`${user.name} photo 1`}
+                    loading="lazy"
+                  />
                 </div>
               )}
 
@@ -40,7 +45,12 @@ function ProfileView({ user, onEdit }) {
                   </div>
                   {photos[index + 1] && (
                     <div className="profile-inline-photo">
-                      <img src={photos[index + 1]} alt={`${user.name} photo ${index + 2}`} />
+                      <img
+                        className="profile-photo-media"
+                        src={photos[index + 1]}
+                        alt={`${user.name} photo ${index + 2}`}
+                        loading="lazy"
+                      />
                     </div>
                   )}
                 </React.Fragment>
@@ -48,7 +58,7 @@ function ProfileView({ user, onEdit }) {
 
               {prompts.length === 0 && photos.slice(1).map((photo, index) => (
                 <div key={`photo-only-${index + 2}`} className="profile-inline-photo">
-                  <img src={photo} alt={`${user.name} photo ${index + 2}`} />
+                  <img className="profile-photo-media" src={photo} alt={`${user.name} photo ${index + 2}`} loading="lazy" />
                 </div>
               ))}
             </div>

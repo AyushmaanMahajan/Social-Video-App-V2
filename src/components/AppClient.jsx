@@ -9,7 +9,7 @@ import Encounter from './Encounter';
 import Interactions from './Interactions';
 import { useVideoSocket } from '@/lib/useVideoSocket';
 import VideoChat from './VideoChat';
-import { deleteMyAccount, getMe, getToken, logoutSession, removeToken } from '@/lib/api';
+import { deleteMyAccount, getMe, getToken, logoutSession, removeToken, updateUser } from '@/lib/api';
 
 const NAV_ITEMS = [
   { id: 'encounter', label: 'Encounter' },
@@ -117,6 +117,7 @@ export default function AppClient() {
   };
 
   const handleSaveProfile = async (updatedData) => {
+    await updateUser(updatedData);
     setCurrentUser((previous) => {
       const next = { ...previous, ...updatedData };
       if (typeof window !== 'undefined') {
