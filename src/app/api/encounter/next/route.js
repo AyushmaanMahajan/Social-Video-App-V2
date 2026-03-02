@@ -12,12 +12,36 @@ export async function GET(request) {
   const userId = auth.userId;
 
   try {
+    await pool.query(
+      `
+      INSERT INTO user_presence (user_id, online, show_status, updated_at)
+      VALUES ($1, true, true, NOW())
+      ON CONFLICT (user_id)
+      DO UPDATE SET online = true, updated_at = NOW()
+      `,
+      [userId]
+    );
+
     const candidate = await pool.query(
       `
       SELECT u.id, u.name, u.age, u.location, u.about, u.currently_into, u.ask_me_about, u.created_at
       FROM users u
       LEFT JOIN user_presence up ON up.user_id = u.id
       WHERE u.id <> $1
+        AND EXISTS (
+          SELECT 1
+          FROM user_presence me
+          WHERE me.user_id = $1
+            AND COALESCE(me.online, false) = true
+            AND COALESCE(me.show_status, true) = true
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM video_calls self_vc
+          WHERE (self_vc.caller_id = $1 OR self_vc.receiver_id = $1)
+            AND self_vc.status = 'connected'
+            AND self_vc.ended_at IS NULL
+        )
         AND COALESCE(up.online, false) = true
         AND COALESCE(up.show_status, true) = true
         AND NOT EXISTS (
