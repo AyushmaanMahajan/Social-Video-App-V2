@@ -25,6 +25,8 @@ function VideoChat({
   const [peer, setPeer] = useState(null);
   const [callId, setCallId] = useState(null);
   const [forceTurn, setForceTurn] = useState(true);
+  const [callMessages, setCallMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
 
   const isCallerRef = useRef(false);
   const localVideoRef = useRef(null);
@@ -71,6 +73,8 @@ function VideoChat({
     setPeer(null);
     setCallId(null);
     setForceTurn(true);
+    setCallMessages([]);
+    setChatInput('');
   }, []);
 
   useEffect(() => {
@@ -101,7 +105,9 @@ function VideoChat({
   const startDrag = useCallback(
     (event) => {
       if (layoutMode !== 'floating') return;
+      if (event.type === 'mousedown' && event.button !== 0) return;
       const pt = event.touches ? event.touches[0] : event;
+      if (event.cancelable) event.preventDefault();
       dragRef.current = {
         active: true,
         startX: pt.clientX,
@@ -116,6 +122,7 @@ function VideoChat({
     (event) => {
       if (!dragRef.current.active || layoutMode !== 'floating') return;
       const pt = event.touches ? event.touches[0] : event;
+      if (event.cancelable) event.preventDefault();
       const dx = pt.clientX - dragRef.current.startX;
       const dy = pt.clientY - dragRef.current.startY;
       const next = clampFloating(dragRef.current.origin.x + dx, dragRef.current.origin.y + dy);
@@ -205,6 +212,46 @@ function VideoChat({
       socket.off('error');
     };
   }, [socket, cleanup, onExit, emitDiagnostic]);
+
+  useEffect(() => {
+    if (!socket || !peer?.id) return () => {};
+
+    const peerId = Number(peer.id);
+    const onChat = (payload) => {
+      if (!payload) return;
+      const fromUserId = Number(payload.fromUserId);
+      const toUserId = Number(payload.toUserId);
+      if (fromUserId !== peerId && toUserId !== peerId) return;
+      if (callId && payload.encounterId && Number(payload.encounterId) !== Number(callId)) return;
+
+      setCallMessages((prev) => {
+        if (payload.id && prev.some((msg) => msg.id === payload.id)) return prev;
+        const nextId =
+          payload.id ||
+          `${fromUserId}-${toUserId}-${payload.createdAt || Date.now()}-${payload.text || ''}`;
+        return [
+          ...prev,
+          {
+            id: nextId,
+            text: payload.text || '',
+            from: fromUserId === peerId ? 'peer' : 'self',
+          },
+        ];
+      });
+    };
+
+    const onChatLocked = (payload) => {
+      if (Number(payload?.peerId) !== peerId) return;
+      setErrorMessage('Chat is unavailable for this user right now.');
+    };
+
+    socket.on('chat-message', onChat);
+    socket.on('chat-locked', onChatLocked);
+    return () => {
+      socket.off('chat-message', onChat);
+      socket.off('chat-locked', onChatLocked);
+    };
+  }, [socket, peer?.id, callId]);
 
   useEffect(() => {
     if (!socket || (callState !== 'connecting' && callState !== 'connected')) return;
@@ -386,6 +433,14 @@ function VideoChat({
     onExit?.();
   }, [socket, cleanup, onExit, callId, emitDiagnostic]);
 
+  const sendCallMessage = useCallback(() => {
+    if (!socket || !peer?.id) return;
+    const text = chatInput.trim();
+    if (!text) return;
+    socket.emit('chat-message', { targetUserId: peer.id, text, encounterId: callId || null });
+    setChatInput('');
+  }, [socket, peer?.id, chatInput, callId]);
+
   useEffect(() => {
     if (testMode !== 'disconnect' || callState !== 'connected') return;
     const t = setTimeout(() => endCall(), 3000);
@@ -412,11 +467,15 @@ function VideoChat({
   return (
     <div
       className={`video-shell ${layoutMode === 'floating' ? 'floating' : 'full'}`}
-      style={layoutMode === 'floating' ? { left: 0, top: 0, transform: 'none' } : undefined}
-      onMouseDown={startDrag}
-      onTouchStart={startDrag}
     >
-      {layoutMode === 'floating' && <div className="video-drag-handle" role="presentation" />}
+      {layoutMode === 'floating' && (
+        <div
+          className="video-drag-handle"
+          role="presentation"
+          onMouseDown={startDrag}
+          onTouchStart={startDrag}
+        />
+      )}
       <div className={`video-vertical ${isMobile ? 'mobile' : ''}`}>
         <div className="video-remote-pane">
           <div className="video-frame remote">
@@ -431,6 +490,32 @@ function VideoChat({
             <video ref={localVideoRef} autoPlay muted playsInline className="video-local" />
           </div>
           <span className="video-self-label muted">You</span>
+        </div>
+      </div>
+      <div className="video-chat-panel">
+        <div className="video-chat-messages">
+          {callMessages.length === 0 ? (
+            <div className="chat-placeholder">Send text while the video call is active.</div>
+          ) : (
+            callMessages.map((msg) => (
+              <div key={msg.id} className={`chat-msg ${msg.from === 'self' ? 'self' : ''}`}>
+                {msg.text}
+              </div>
+            ))
+          )}
+        </div>
+        <div className="video-chat-input-wrap">
+          <input
+            type="text"
+            className="video-chat-input"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && sendCallMessage()}
+            placeholder="Type a message..."
+          />
+          <button type="button" className="btn-send-chat" onClick={sendCallMessage}>
+            Send
+          </button>
         </div>
       </div>
       <div className="video-controls-stack">

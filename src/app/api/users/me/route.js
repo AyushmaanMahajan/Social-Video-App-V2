@@ -52,7 +52,16 @@ export async function PUT(request) {
 
   try {
     const body = await request.json();
-    const name = body.name ?? null;
+    const nameValue = body.name;
+    const normalizedName =
+      typeof nameValue === 'string'
+        ? nameValue.trim()
+        : nameValue === null
+          ? null
+          : null;
+    if (typeof nameValue === 'string' && !normalizedName) {
+      return Response.json({ error: 'Username cannot be empty.' }, { status: 400 });
+    }
     const ageInput = body.age;
     const parsedAge =
       ageInput === '' || ageInput === null || ageInput === undefined ? Number.NaN : Number(ageInput);
@@ -72,6 +81,22 @@ export async function PUT(request) {
     const prompts = body.prompts;
     const interests = body.interests;
 
+    if (normalizedName !== null) {
+      const existingName = await pool.query(
+        `
+        SELECT 1
+        FROM users
+        WHERE LOWER(name) = LOWER($1)
+          AND id <> $2
+        LIMIT 1
+        `,
+        [normalizedName, userId]
+      );
+      if (existingName.rows.length > 0) {
+        return Response.json({ error: 'Username is already taken' }, { status: 400 });
+      }
+    }
+
     await pool.query(
       `
       UPDATE users
@@ -89,7 +114,7 @@ export async function PUT(request) {
       WHERE id = $11
       `,
       [
-        name,
+        normalizedName,
         age,
         location,
         about,

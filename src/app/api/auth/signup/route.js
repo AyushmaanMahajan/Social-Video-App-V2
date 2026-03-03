@@ -7,9 +7,23 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const { email, password, name, age, location } = body;
+    const normalizedName = String(name || '').trim();
 
-    if (!email || !password || !name || !age) {
+    if (!email || !password || !normalizedName || !age) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const existingName = await pool.query(
+      `
+      SELECT 1
+      FROM users
+      WHERE LOWER(name) = LOWER($1)
+      LIMIT 1
+      `,
+      [normalizedName]
+    );
+    if (existingName.rows.length > 0) {
+      return Response.json({ error: 'Username is already taken' }, { status: 400 });
     }
 
     const hashedPassword = await bcryptjs.hash(password, 10);
@@ -20,7 +34,7 @@ export async function POST(request) {
       VALUES ($1, $2, $3, $4, $5, FALSE)
       RETURNING id, email, name, age, location, created_at
       `,
-      [email, hashedPassword, name, age, location || 'Unknown']
+      [email, hashedPassword, normalizedName, age, location || 'Unknown']
     );
 
     const user = result.rows[0];

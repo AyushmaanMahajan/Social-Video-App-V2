@@ -208,6 +208,12 @@ async function isChatMutual(userId, targetUserId) {
   return row.me_enabled && row.them_enabled;
 }
 
+function isUsersInSameCall(userId, targetUserId) {
+  const callerState = userInCall.get(Number(userId));
+  if (!callerState) return false;
+  return Number(callerState.peerId) === Number(targetUserId);
+}
+
 async function persistEncounterMessage(senderId, receiverId, encounterId, messageText) {
   const res = await pool.query(
     `
@@ -572,7 +578,7 @@ function registerVideoNamespace(io) {
         encounterId !== undefined && encounterId !== null && Number.isFinite(Number(encounterId))
           ? Number(encounterId)
           : null;
-      const allowed = await isChatMutual(userId, numericTarget);
+      const allowed = isUsersInSameCall(userId, numericTarget) || (await isChatMutual(userId, numericTarget));
       if (!allowed) {
         return socket.emit('chat-locked', { peerId: numericTarget });
       }

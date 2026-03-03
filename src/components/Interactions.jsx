@@ -32,9 +32,14 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
 
   const load = async () => {
     try {
-      const { interactions } = await getInteractions(search);
+      const { interactions = [] } = await getInteractions(search);
       setItems(interactions);
-      if (interactions.length > 0 && !selected) setSelected(interactions[0]);
+      setSelected((prev) => {
+        if (!interactions?.length) return null;
+        const previousId = prev?.otherUserId;
+        if (!previousId) return interactions[0];
+        return interactions.find((item) => item.otherUserId === previousId) || interactions[0];
+      });
     } catch (e) {
       console.error('Interactions load failed', e);
     }
@@ -57,6 +62,7 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
   const chatEnabled = currentChatState.me;
   const peerEnabled = currentChatState.them;
   const mutualChat = chatEnabled && peerEnabled;
+  const chatHint = mutualChat ? 'Chat unlocked. You can message now.' : waitingMessage || 'Enable chat to start messaging.';
 
   useEffect(() => {
     let active = true;
@@ -271,7 +277,7 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
 
       <div className="interactions-body">
         <div className="interactions-list">
-      {filteredItems.map((item) => (
+          {filteredItems.map((item) => (
             <button
               type="button"
               key={item.id}
@@ -284,7 +290,7 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
               <div className="avatar status-avatar">
                 {item.user.photo ? <img src={item.user.photo} alt={item.user.name} /> : <div className="avatar-fallback" />}
                 <span
-                  className={`status-badge ${isOnline(item.otherUserId) ? 'online' : 'offline'}`}
+                  className={`presence-dot ${isOnline(item.otherUserId) ? 'online' : 'offline'}`}
                   aria-label={isOnline(item.otherUserId) ? 'Online' : 'Offline'}
                 />
               </div>
@@ -295,6 +301,9 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
               <StatusBadge status={item.status} />
             </button>
           ))}
+          {filteredItems.length === 0 && (
+            <div className="interactions-list-empty">Only connected users appear here.</div>
+          )}
         </div>
 
         <div className="interaction-detail">
@@ -325,13 +334,10 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
                           />
                         </svg>
                       </span>
-                      <span className="toggle-label">
-                        {chatEnabled ? 'Chat enabled' : 'Enable chat'}
-                        {peerEnabled && !chatEnabled && <span className="peer-hint">They enabled</span>}
-                      </span>
+                      <span className="toggle-label">Chat</span>
                     </span>
                   </label>
-                  {!chatEnabled && waitingMessage && <p className="muted">{waitingMessage}</p>}
+                  <p className="muted chat-toggle-note">{chatHint}</p>
                 </div>
               </div>
 

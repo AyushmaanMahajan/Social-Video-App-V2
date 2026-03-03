@@ -24,7 +24,8 @@ export async function GET(request) {
              i.status,
              i.last_interaction_at
       FROM interactions i
-      WHERE i.user_a = $1 OR i.user_b = $1
+      WHERE (i.user_a = $1 OR i.user_b = $1)
+        AND i.status = 'connected'
       ORDER BY i.last_interaction_at DESC
       `,
       params.slice(0, 1)

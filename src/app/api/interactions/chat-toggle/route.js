@@ -37,7 +37,12 @@ export async function POST(request) {
     );
 
     const status = await isMutualEnabled(userId, targetUserId);
-    return Response.json({ enabled, mutual: status.me && status.them });
+    return Response.json({
+      enabled,
+      meEnabled: Boolean(status.me),
+      themEnabled: Boolean(status.them),
+      mutual: Boolean(status.me && status.them),
+    });
   } catch (error) {
     console.error('Chat toggle error', error);
     return Response.json({ error: 'Server error' }, { status: 500 });

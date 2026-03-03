@@ -210,7 +210,6 @@ export default function AppClient() {
       <main className="app-main">
         {!currentUser && authReady && <ProfileForm onProfileCreated={handleProfileCreated} />}
         {!currentUser && !authReady && <div className="loading">Loading...</div>}
-        <div> AuthBootstrapping: {`${authBootstrapping}`} </div>
         {!authBootstrapping && currentUser && currentPage === 'encounter' && !videoActive && (
           <Encounter
             socket={socket}
