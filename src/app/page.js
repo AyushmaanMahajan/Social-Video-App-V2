@@ -2,53 +2,37 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { motion, useScroll, useTransform } from "framer-motion"
+import { motion } from "framer-motion"
 
 const reveal = {
-  hidden: { opacity: 0, y: 36 },
+  hidden: { opacity: 0, y: 28 },
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.65, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.62, ease: [0.16, 1, 0.3, 1] },
   },
 }
 
-const features = [
+const steps = [
   {
-    title: "Enter the Encounter Pool",
-    description: "Join a live pool where people are ready to meet now.",
+    title: "Enter the Pool",
+    description: "Step into a live queue of people ready for real-time conversation.",
   },
   {
-    title: "30-Second Introduction",
-    description: "Get a short timed intro that keeps momentum high.",
+    title: "30 Second Intro",
+    description: "Get a fast first impression with a structured, time-boxed encounter.",
   },
   {
     title: "Connect or Pass",
-    description: "Mutual interest continues the interaction. Otherwise move on.",
+    description: "Continue only when interest is mutual. No endless swiping loops.",
   },
 ]
 
-const differentiators = [
-  {
-    title: "No Endless Swiping",
-    description: "Conversations start immediately instead of sitting in queues.",
-  },
-  {
-    title: "Face-to-Face First",
-    description: "Real-time video creates clarity and stronger trust signals.",
-  },
-  {
-    title: "Structured by Design",
-    description: "Time-boxed encounters reduce noise and improve quality.",
-  },
-]
-
-const safetyChips = [
-  "Verified Accounts",
-  "Instant Reporting",
-  "Moderated Reviews",
-  "Leave Anytime Controls",
-  "Consent-Based Matching",
+const safetyPoints = [
+  "Verified identity signals",
+  "Instant in-call reporting",
+  "Fast block and leave controls",
+  "Active moderation review",
 ]
 
 function Reveal({ children, className = "" }) {
@@ -68,9 +52,6 @@ function Reveal({ children, className = "" }) {
 export default function Home() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const { scrollYProgress } = useScroll()
-  const heroShapeY = useTransform(scrollYProgress, [0, 1], [0, -160])
-  const heroShapeYReverse = useTransform(scrollYProgress, [0, 1], [0, 120])
 
   useEffect(() => {
     async function checkAuth() {
@@ -94,171 +75,201 @@ export default function Home() {
   if (loading) return null
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-slate-950 text-white scroll-smooth">
+    <main className="relative min-h-screen overflow-x-hidden bg-[#06080F] text-white">
+      <div className="pointer-events-none fixed inset-0 opacity-[0.04] bg-[url('/noise.png')] mix-blend-overlay" />
+      <div className="pointer-events-none fixed inset-0 opacity-[0.03] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:22px_22px]" />
+
       <motion.div
-        className="pointer-events-none fixed inset-0 -z-20 bg-[radial-gradient(75%_65%_at_50%_0%,rgba(56,189,248,0.35),transparent_60%),radial-gradient(65%_60%_at_100%_20%,rgba(99,102,241,0.3),transparent_65%),radial-gradient(80%_70%_at_0%_100%,rgba(16,185,129,0.2),transparent_70%)] bg-[length:180%_180%]"
+        className="pointer-events-none fixed inset-0 -z-20 bg-[radial-gradient(70%_60%_at_20%_15%,rgba(168,85,247,0.28),transparent_65%),radial-gradient(68%_62%_at_85%_20%,rgba(91,140,255,0.26),transparent_68%),radial-gradient(60%_55%_at_50%_90%,rgba(168,85,247,0.16),transparent_70%)] bg-[length:160%_160%]"
         animate={{ backgroundPosition: ["0% 0%", "100% 100%", "0% 0%"] }}
         transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
       />
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-b from-slate-900/20 via-slate-950/40 to-slate-950" />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-b from-[#06080F]/30 via-[#06080F]/70 to-[#06080F]" />
 
-      <section className="relative flex min-h-screen items-center px-4 py-20 sm:px-8 lg:px-16">
-        <motion.div
-          style={{ y: heroShapeY }}
-          className="pointer-events-none absolute -left-24 top-24 h-56 w-56 rounded-full bg-cyan-300/20 blur-3xl sm:h-72 sm:w-72"
-          animate={{ x: [0, 24, -18, 0], rotate: [0, 8, -6, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          style={{ y: heroShapeYReverse }}
-          className="pointer-events-none absolute right-0 top-20 h-52 w-52 rounded-[38%_62%_55%_45%] bg-violet-300/20 blur-3xl sm:h-72 sm:w-72"
-          animate={{ x: [0, -22, 14, 0], rotate: [0, -12, 8, 0] }}
-          transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          style={{ y: heroShapeY }}
-          className="pointer-events-none absolute bottom-16 left-1/2 h-44 w-44 -translate-x-1/2 rounded-[65%_35%_45%_55%] bg-emerald-300/20 blur-3xl sm:h-56 sm:w-56"
-          animate={{ y: [0, -18, 12, 0], rotate: [0, 10, -8, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        />
+      {/* HERO */}
+      <section className="bg-[#06080F] px-4 py-32 sm:px-8 lg:px-16">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2">
+          <Reveal className="relative text-center lg:text-left">
+            <div className="absolute left-1/2 top-40 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-[#A855F7]/20 blur-[160px]" />
 
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 lg:flex-row lg:items-center lg:justify-between">
-          <Reveal className="relative z-10 max-w-2xl text-center lg:text-left">
-            <p className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 backdrop-blur-xl">
-              Live Encounter Platform
+            <p className="relative inline-flex rounded-full bg-[#0B0F1A]/80 px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#C6D7FF] shadow-[0_10px_40px_rgba(91,140,255,0.12)] backdrop-blur-xl">
+              Future of Video Encounters
             </p>
-            <h1 className="mt-6 text-4xl font-black leading-tight sm:text-5xl lg:text-7xl">
-              Meet Someone New
-              <span className="block bg-gradient-to-r from-cyan-200 via-indigo-200 to-emerald-200 bg-clip-text text-transparent">
+            <h1 className="relative mt-6 text-5xl font-black leading-[1.05] sm:text-6xl lg:text-[82px]">
+              Meet Someone
+              <span className="block bg-gradient-to-r from-[#5B8CFF] to-[#A855F7] bg-clip-text text-transparent">
                 In 30 Seconds
               </span>
             </h1>
-            <p className="mt-6 text-base text-slate-200 sm:text-lg">
-              Structured video encounters built for fast introductions, stronger trust, and safer interactions.
+            <p className="relative mt-6 max-w-xl text-base text-slate-200 sm:text-lg">
+              A futuristic encounter flow designed for fast connection, stronger trust, and safer conversations.
             </p>
-            <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
+
+            <div className="relative mt-10 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
               <motion.button
-                whileTap={{ scale: 0.98 }}
                 whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                animate={{
+                  boxShadow: [
+                    "0 0 20px rgba(168,85,247,0.2)",
+                    "0 0 40px rgba(168,85,247,0.6)",
+                    "0 0 20px rgba(168,85,247,0.2)",
+                  ],
+                }}
+                transition={{ duration: 3, repeat: Infinity }}
                 onClick={() => router.push("/encounter?auth=signup")}
-                className="rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-7 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/30 transition"
+                className="rounded-xl bg-gradient-to-r from-[#5B8CFF] to-[#A855F7] px-10 py-4 text-base font-bold text-white"
               >
                 Create Account
               </motion.button>
               <motion.button
-                whileTap={{ scale: 0.98 }}
                 whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => router.push("/encounter?auth=login")}
-                className="rounded-xl border border-white/35 bg-white/10 px-7 py-3 text-sm font-semibold text-white backdrop-blur-xl transition hover:border-white/60"
+                className="rounded-xl bg-[#0B0F1A]/90 px-10 py-4 text-base font-semibold text-slate-100 shadow-[0_10px_40px_rgba(91,140,255,0.12)] backdrop-blur-xl"
               >
                 Sign In
               </motion.button>
             </div>
-            <p className="mt-4 text-xs text-slate-300">18+ only. Moderated and report-enabled.</p>
           </Reveal>
 
-          <Reveal className="relative z-10 mx-auto w-full max-w-md">
-            <div className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-2xl shadow-2xl shadow-black/30">
-              <p className="text-xs uppercase tracking-[0.18em] text-cyan-100">Safety Snapshot</p>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <StatCard value="Email" label="Verification Required" />
-                <StatCard value="18+" label="Age-gated Access" />
-                <StatCard value="Instant" label="In-Call Reporting" />
-                <StatCard value="1 Tap" label="Leave Encounter" />
-              </div>
+          <Reveal className="mx-auto w-full max-w-md">
+            <div className="relative mx-auto h-[420px] w-[420px] max-w-full">
+              <motion.div
+                className="absolute inset-0 rounded-full bg-gradient-to-r from-[#5B8CFF] to-[#A855F7] opacity-60 blur-[120px]"
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 6, repeat: Infinity }}
+              />
+
+              <motion.div
+                className="absolute inset-0 rounded-full border border-[#5B8CFF]/40"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+              />
+
+              <motion.div
+                className="absolute inset-16 rounded-full border border-[#A855F7]/40"
+                animate={{ rotate: -360 }}
+                transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
+              />
+
+              <motion.div
+                className="absolute inset-32 rounded-full bg-[#5B8CFF]/30 blur-xl"
+                animate={{ scale: [1, 1.4, 1] }}
+                transition={{ duration: 4, repeat: Infinity }}
+              />
             </div>
           </Reveal>
         </div>
       </section>
 
-      <section className="px-4 py-20 sm:px-8 lg:px-16">
-        <Reveal className="mx-auto max-w-6xl">
-          <h2 className="text-center text-3xl font-bold sm:text-4xl">How It Works</h2>
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {features.map((item, index) => (
-              <GlassCard key={item.title} index={index} title={item.title} description={item.description} />
-            ))}
+      {/* SIGNAL */}
+      <section className="bg-[#0B0F1A] px-4 py-32 sm:px-8 lg:px-16">
+        <Reveal className="mx-auto max-w-5xl rounded-3xl bg-[#0B0F1A]/90 p-8 backdrop-blur-2xl shadow-[0_10px_40px_rgba(91,140,255,0.12)]">
+          <h2 className="text-center text-3xl font-bold sm:text-4xl">Signal Connection</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-slate-200">
+            Real-time handshake and matching is designed to be fast, transparent, and resilient.
+          </p>
+
+          <div className="relative mx-auto mt-10 h-36 w-full max-w-3xl">
+            <div className="absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-[#5B8CFF] shadow-[0_0_20px_#5B8CFF]" />
+            <div className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-[#A855F7] shadow-[0_0_20px_#A855F7]" />
+            <div className="absolute left-6 right-6 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-[#5B8CFF]/20 via-[#A855F7] to-[#A855F7]/20" />
+
+            <motion.div
+              className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#5B8CFF]"
+              style={{ left: "1.5rem" }}
+              animate={{ left: ["1.5rem", "calc(100% - 1.75rem)", "1.5rem"], opacity: [0.2, 1, 0.2] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#A855F7]"
+              style={{ right: "1.5rem" }}
+              animate={{ right: ["1.5rem", "calc(100% - 1.75rem)", "1.5rem"], opacity: [0.2, 1, 0.2] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+            />
           </div>
         </Reveal>
       </section>
 
-      <section className="px-4 py-20 sm:px-8 lg:px-16">
-        <Reveal className="mx-auto max-w-5xl rounded-3xl border border-white/20 bg-white/10 p-6 text-center backdrop-blur-2xl sm:p-10">
-          <h2 className="text-3xl font-bold sm:text-4xl">Built for Respectful Encounters</h2>
-          <p className="mx-auto mt-5 max-w-3xl text-slate-200">
-            Conversation quality improves when safety tools are built into the core flow, not hidden in settings.
-          </p>
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-            {safetyChips.map((chip, index) => (
+      {/* HOW IT WORKS */}
+      <section className="bg-[#06080F] px-4 py-32 sm:px-8 lg:px-16">
+        <Reveal className="mx-auto max-w-6xl">
+          <h2 className="text-center text-3xl font-bold sm:text-4xl">How It Works</h2>
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {steps.map((step, index) => (
               <motion.div
-                key={chip}
-                initial={{ opacity: 0, y: 18 }}
+                key={step.title}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.06, duration: 0.45 }}
-                className="rounded-xl border border-white/25 bg-slate-900/55 px-3 py-3 text-xs text-slate-100 backdrop-blur-xl sm:text-sm"
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ delay: index * 0.08, duration: 0.5 }}
+                className="rounded-2xl bg-[#0B0F1A] p-7 shadow-[0_10px_40px_rgba(91,140,255,0.12)]"
               >
-                {chip}
+                <div className="mb-3 text-sm font-bold text-[#A855F7]">Step {index + 1}</div>
+                <h3 className="text-xl font-bold text-white">{step.title}</h3>
+                <p className="mt-3 text-sm text-slate-300">{step.description}</p>
               </motion.div>
             ))}
           </div>
         </Reveal>
       </section>
 
-      <section className="px-4 py-20 sm:px-8 lg:px-16">
-        <Reveal className="mx-auto max-w-6xl">
-          <h2 className="text-center text-3xl font-bold sm:text-4xl">Why This Feels Different</h2>
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {differentiators.map((item, index) => (
-              <GlassCard key={item.title} index={index} title={item.title} description={item.description} />
+      {/* SAFETY + PHILOSOPHY */}
+      <section className="bg-[#0B0F1A] px-4 py-32 sm:px-8 lg:px-16">
+        <Reveal className="mx-auto max-w-5xl rounded-3xl bg-[#0B0F1A]/90 p-8 text-center backdrop-blur-2xl shadow-[0_10px_40px_rgba(168,85,247,0.14)] sm:p-10">
+          <div className="mx-auto mb-8 h-24 w-24 rounded-full bg-[#A855F7]/30 blur-2xl" />
+          <h2 className="text-3xl font-bold sm:text-4xl">Safety by Default</h2>
+          <p className="mx-auto mt-4 max-w-3xl text-slate-200">
+            The experience is designed so users can stay in control from first contact to final decision.
+          </p>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            {safetyPoints.map((point, index) => (
+              <motion.div
+                key={point}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.06, duration: 0.45 }}
+                className="rounded-xl bg-[#06080F]/80 px-4 py-3 text-sm text-slate-100 shadow-[0_10px_40px_rgba(91,140,255,0.08)]"
+              >
+                {point}
+              </motion.div>
             ))}
           </div>
+
+          <p className="mx-auto mt-10 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
+            “Technology should reduce noise, not attention. The best connections happen when design protects time,
+            intent, and safety.”
+          </p>
         </Reveal>
       </section>
 
-      <section className="px-4 pb-24 pt-8 sm:px-8 lg:px-16">
-        <Reveal className="mx-auto max-w-5xl rounded-3xl border border-white/20 bg-gradient-to-r from-cyan-400/20 via-indigo-400/20 to-emerald-400/20 p-8 text-center backdrop-blur-2xl sm:p-12">
-          <h2 className="text-3xl font-bold sm:text-4xl">Ready to Meet Someone New?</h2>
-          <p className="mt-3 text-slate-200">Create your account and complete onboarding in under a minute.</p>
+      {/* CTA */}
+      <section className="bg-[#06080F] px-4 pb-24 pt-8 sm:px-8 lg:px-16">
+        <Reveal className="mx-auto max-w-5xl rounded-3xl bg-gradient-to-r from-[#5B8CFF]/25 via-[#0B0F1A]/90 to-[#A855F7]/25 p-8 text-center backdrop-blur-2xl shadow-[0_10px_40px_rgba(168,85,247,0.14)] sm:p-12">
+          <h2 className="text-5xl font-bold">Ready to Connect?</h2>
+          <p className="mt-3 text-slate-200">Create your account and step into your first 30-second encounter.</p>
           <motion.button
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
+            animate={{
+              boxShadow: [
+                "0 0 20px rgba(168,85,247,0.3)",
+                "0 0 50px rgba(168,85,247,0.7)",
+                "0 0 20px rgba(168,85,247,0.3)",
+              ],
+            }}
+            transition={{ duration: 3, repeat: Infinity }}
             onClick={() => router.push("/encounter?auth=signup")}
-            className="mt-7 rounded-xl bg-white px-8 py-3 text-sm font-bold text-slate-900 shadow-xl shadow-black/30 sm:text-base"
+            className="mt-7 rounded-xl bg-gradient-to-r from-[#5B8CFF] to-[#A855F7] px-10 py-4 text-base font-bold text-white"
           >
-            Create Your Account
+            Create Account
           </motion.button>
+          <p className="mt-3 text-xs text-slate-400">Takes less than 60 seconds · 18+ community</p>
         </Reveal>
       </section>
-
-      <footer className="border-t border-white/10 px-4 py-8 text-center text-xs text-slate-400 sm:text-sm">
-        © {new Date().getFullYear()} · All rights reserved
-      </footer>
     </main>
-  )
-}
-
-function GlassCard({ index, title, description }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ delay: index * 0.08, duration: 0.55 }}
-      whileHover={{ y: -8, scale: 1.01 }}
-      className="rounded-2xl border border-white/20 bg-white/10 p-6 backdrop-blur-2xl shadow-xl shadow-black/20"
-    >
-      <h3 className="text-lg font-semibold text-white">{title}</h3>
-      <p className="mt-3 text-sm text-slate-200">{description}</p>
-    </motion.div>
-  )
-}
-
-function StatCard({ value, label }) {
-  return (
-    <div className="rounded-xl border border-white/20 bg-slate-900/55 p-4 text-left backdrop-blur-xl">
-      <p className="text-lg font-bold text-cyan-100">{value}</p>
-      <p className="mt-1 text-xs text-slate-300">{label}</p>
-    </div>
   )
 }
