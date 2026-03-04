@@ -7,16 +7,9 @@ export async function GET(request) {
 
   const userId = auth.userId;
   const { searchParams } = new URL(request.url);
-  const search = searchParams.get('search');
+  const search = String(searchParams.get('search') || '').trim();
 
   try {
-    const params = [userId];
-    let searchClause = '';
-    if (search) {
-      params.push(`%${search}%`);
-      searchClause = 'AND u.name ILIKE $2';
-    }
-
     const result = await pool.query(
       `
       SELECT i.id,
@@ -26,9 +19,15 @@ export async function GET(request) {
       FROM interactions i
       WHERE (i.user_a = $1 OR i.user_b = $1)
         AND i.status = 'connected'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM blocks b
+          WHERE (b.blocker_id = $1 AND b.blocked_id = CASE WHEN i.user_a = $1 THEN i.user_b ELSE i.user_a END)
+             OR (b.blocker_id = CASE WHEN i.user_a = $1 THEN i.user_b ELSE i.user_a END AND b.blocked_id = $1)
+        )
       ORDER BY i.last_interaction_at DESC
       `,
-      params.slice(0, 1)
+      [userId]
     );
 
     const otherIds = result.rows.map((r) => Number(r.other_user_id));
@@ -36,14 +35,24 @@ export async function GET(request) {
       return Response.json({ interactions: [] });
     }
 
+    const profileParams = [otherIds];
+    let searchClause = '';
+    if (search) {
+      profileParams.push(`%${search}%`);
+      searchClause = `AND COALESCE(username, name, '') ILIKE $2`;
+    }
+
     const profiles = await pool.query(
       `
-        SELECT id, name, age, location
-        FROM users u
+        SELECT id,
+               COALESCE(username, name, 'User') AS name,
+               COALESCE(EXTRACT(YEAR FROM age(CURRENT_DATE, birthdate))::int, age) AS age,
+               location
+        FROM users
         WHERE id = ANY($1)
         ${searchClause}
       `,
-      search ? [otherIds, `%${search}%`] : [otherIds]
+      profileParams
     );
     const profileMap = new Map(profiles.rows.map((p) => [Number(p.id), p]));
 

@@ -1,5 +1,6 @@
 import pool from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { isBlockedEitherDirection } from '@/lib/userAccess';
 
 async function isMutualEnabled(userId, targetUserId) {
   const res = await pool.query(
@@ -28,6 +29,10 @@ export async function GET(request) {
   }
 
   try {
+    if (await isBlockedEitherDirection(auth.userId, targetUserId)) {
+      return Response.json({ error: 'Chat is unavailable for this user.' }, { status: 403 });
+    }
+
     const params = encounterId ? [auth.userId, targetUserId, encounterId] : [auth.userId, targetUserId];
     const encounterClause = encounterId ? 'AND encounter_id = $3' : '';
     const res = await pool.query(
@@ -64,6 +69,10 @@ export async function POST(request) {
     }
 
     const target = Number(targetUserId);
+    if (await isBlockedEitherDirection(auth.userId, target)) {
+      return Response.json({ error: 'Chat is unavailable for this user.' }, { status: 403 });
+    }
+
     if (!(await isMutualEnabled(auth.userId, target))) {
       return Response.json({ error: 'Chat not unlocked' }, { status: 403 });
     }

@@ -68,8 +68,8 @@ export const signup = async (profileData) => {
   return data;
 };
 
-export const login = async (email, password) => {
-  const { data } = await axios.post('/api/auth/login', { email, password });
+export const login = async (identifier, password) => {
+  const { data } = await axios.post('/api/auth/login', { identifier, password });
   if (data.token) setToken(data.token);
   return data;
 };
@@ -85,6 +85,11 @@ export const resendVerification = async (email) => {
   return data;
 };
 
+export const completeOnboarding = async (payload) => {
+  const { data } = await axios.post('/api/auth/onboarding', payload);
+  return data;
+};
+
 export const logout = () => removeToken();
 
 export const getCurrentUser = async () => {
@@ -92,7 +97,8 @@ export const getCurrentUser = async () => {
   const { data } = await axios.get('/api/users/me', {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
-}
+  return data;
+};
 export const logoutSession = async () => {
   const { data } = await axios.post('/api/auth/logout');
   return data;
@@ -135,6 +141,31 @@ export const getPassedEncounterProfiles = async () => {
 
 export const restorePassedEncounterProfiles = async () => {
   const { data } = await axios.delete('/api/encounter/passed');
+  return data;
+};
+
+export const reportEncounterUser = async (payload) => {
+  const { data } = await axios.post('/api/encounter/report', payload);
+  return data;
+};
+
+export const blockUser = async (blockedUserId) => {
+  const { data } = await axios.post('/api/blocks', { blockedUserId });
+  return data;
+};
+
+export const unblockUser = async (blockedUserId) => {
+  const { data } = await axios.delete('/api/blocks', { data: { blockedUserId } });
+  return data;
+};
+
+export const listBlockedUsers = async () => {
+  const { data } = await axios.get('/api/blocks');
+  return data?.blocks || [];
+};
+
+export const reportProfilePhoto = async (payload) => {
+  const { data } = await axios.post('/api/users/photos/report', payload);
   return data;
 };
 
@@ -182,4 +213,4 @@ export const setPresenceVisibility = async (showStatus) => {
   return data?.showStatus ?? showStatus;
 };
 
-export { getToken, setToken, removeToken}
+export { getToken, setToken, removeToken };

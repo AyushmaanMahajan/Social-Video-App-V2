@@ -11,8 +11,8 @@ export async function GET(request) {
       `
       SELECT
         u.id,
-        u.name,
-        u.age,
+        COALESCE(u.username, u.name, 'User') AS name,
+        COALESCE(EXTRACT(YEAR FROM age(CURRENT_DATE, u.birthdate))::int, u.age) AS age,
         u.location,
         s.skipped_at AS "skippedAt",
         (

@@ -21,6 +21,9 @@ function ProfileView({ user, onEdit }) {
           {user.location && user.showLocation !== false && (
             <p className="profile-location">{user.location}</p>
           )}
+          {user.gender && (user.gender_visible ?? user.genderVisible) !== false && (
+            <p className="profile-location">{String(user.gender).replace(/_/g, ' ')}</p>
+          )}
         </div>
 
         {(prompts.length > 0 || photos.length > 0) && (

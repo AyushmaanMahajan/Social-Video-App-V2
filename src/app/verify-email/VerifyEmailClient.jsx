@@ -22,7 +22,7 @@ export default function VerifyEmailClient() {
     verifyEmail(token)
       .then(() => {
         if (!mounted) return;
-        setStatus('Email verified. Redirecting...');
+        setStatus('Email verified. Redirecting to onboarding...');
         setTimeout(() => router.replace('/encounter'), 1000);
       })
       .catch((err) => {

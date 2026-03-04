@@ -1,5 +1,6 @@
 import pool from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { isBlockedEitherDirection } from '@/lib/userAccess';
 
 export async function GET(request, { params }) {
   const auth = requireAuth(request);
@@ -12,6 +13,10 @@ export async function GET(request, { params }) {
   }
 
   try {
+    if (await isBlockedEitherDirection(userId, targetUserId)) {
+      return Response.json({ meEnabled: false, themEnabled: false, mutual: false, blocked: true });
+    }
+
     const res = await pool.query(
       `
       SELECT

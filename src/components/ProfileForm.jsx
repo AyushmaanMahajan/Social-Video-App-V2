@@ -1,49 +1,73 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { signup, login, resendVerification } from '@/lib/api';
 
+function detectInitialLoginMode() {
+  if (typeof window === 'undefined') return false;
+  const authMode = String(new URLSearchParams(window.location.search).get('auth') || '').toLowerCase();
+  return authMode === 'login';
+}
+
 function ProfileForm({ onProfileCreated }) {
-  const [isLogin, setIsLogin] = useState(false);
+  const router = useRouter();
+  const [isLogin, setIsLogin] = useState(detectInitialLoginMode);
+  const [username, setUsername] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
+  const [devVerificationUrl, setDevVerificationUrl] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const setAuthMode = (nextIsLogin) => {
+    setIsLogin(nextIsLogin);
+    setError('');
+    setInfo('');
+    setDevVerificationUrl('');
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('auth', nextIsLogin ? 'login' : 'signup');
+      router.replace(`/encounter?${params.toString()}`);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const authMode = String(new URLSearchParams(window.location.search).get('auth') || '').toLowerCase();
+    if (authMode === 'login') setIsLogin(true);
+    if (authMode === 'signup') setIsLogin(false);
+  }, []);
+
+  const handleSignup = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setInfo('');
+    setDevVerificationUrl('');
 
     try {
-      const data = await signup({
-        email,
-        password,
-        name,
-        age: parseInt(age),
-        location
-      });
-
+      const data = await signup({ username, email, password });
       if (data?.requiresEmailVerification) {
         setNeedsVerification(true);
-        setIsLogin(true);
+        setAuthMode(true);
+        setIdentifier(username);
+        if (data?.devVerificationUrl) {
+          setDevVerificationUrl(data.devVerificationUrl);
+        }
         setInfo(
           data?.emailSent
-            ? 'Signup complete. Check your inbox and verify your email before login.'
-            : 'Signup complete, but verification email could not be sent. Use resend below.'
+            ? 'Verification email sent. Click the link in your inbox to continue onboarding.'
+            : data?.verificationError || 'Account created, but the verification email could not be sent. Use resend below.'
         );
-        setLoading(false);
         return;
       }
-
       onProfileCreated(data.user);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create profile');
+      setError(err.response?.data?.error || 'Signup failed.');
+    } finally {
       setLoading(false);
     }
   };
@@ -53,18 +77,21 @@ function ProfileForm({ onProfileCreated }) {
     setLoading(true);
     setError('');
     setInfo('');
+    setDevVerificationUrl('');
 
     try {
-      const data = await login(email, password);
+      const data = await login(identifier, password);
       onProfileCreated(data.user);
     } catch (err) {
       const responseData = err.response?.data || {};
       if (err.response?.status === 403 && responseData.requiresEmailVerification) {
         setNeedsVerification(true);
-        setInfo('Verify your email first. If needed, resend the verification email.');
+        if (responseData.email) setEmail(responseData.email);
+        setInfo('Verify your email first. You can resend the verification link below.');
       } else {
         setError(responseData.error || 'Login failed');
       }
+    } finally {
       setLoading(false);
     }
   };
@@ -77,11 +104,19 @@ function ProfileForm({ onProfileCreated }) {
     setLoading(true);
     setError('');
     setInfo('');
+    setDevVerificationUrl('');
     try {
-      await resendVerification(email);
-      setInfo('Verification email sent. Check your inbox and spam folder.');
+      const data = await resendVerification(email);
+      if (data?.emailSent === false) {
+        setInfo(data?.error || 'Verification email could not be sent right now.');
+      } else {
+        setInfo('Verification email sent. Check your inbox and spam folder.');
+      }
+      if (data?.devVerificationUrl) {
+        setDevVerificationUrl(data.devVerificationUrl);
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Could not resend verification email');
+      setError(err.response?.data?.error || 'Could not resend verification email.');
     } finally {
       setLoading(false);
     }
@@ -90,22 +125,74 @@ function ProfileForm({ onProfileCreated }) {
   return (
     <div className="profile-form-container">
       <div className="profile-form-card">
-        <h2>{isLogin ? 'Login' : 'Create Your Profile'}</h2>
-        
+        <div className="profile-auth-head">
+          <h2>{isLogin ? 'Sign in' : 'Create account'}</h2>
+          <button
+            type="button"
+            className="auth-switch-top"
+            onClick={() => setAuthMode(!isLogin)}
+            disabled={loading}
+          >
+            {isLogin ? 'Create account' : 'Sign in'}
+          </button>
+        </div>
+
+        {!isLogin && (
+          <p className="muted onboarding-inline-note">
+            Create your account first. After email verification, onboarding continues with birthdate and safety steps.
+          </p>
+        )}
+
         {error && <div className="error-message">{error}</div>}
         {info && <div className="encounter-status">{info}</div>}
-
-        <form onSubmit={isLogin ? handleLogin : handleSubmit} className="profile-form">
-          <div className="form-group">
-            <label>Email *</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="your@email.com"
-            />
+        {devVerificationUrl && (
+          <div className="encounter-status">
+            Development verification link:{' '}
+            <a href={devVerificationUrl} target="_blank" rel="noreferrer">
+              Open verification
+            </a>
           </div>
+        )}
+
+        <form onSubmit={isLogin ? handleLogin : handleSignup} className="profile-form">
+          {isLogin ? (
+            <div className="form-group">
+              <label>Username *</label>
+              <input
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+                autoComplete="username"
+                placeholder="your_username"
+              />
+            </div>
+          ) : (
+            <>
+              <div className="form-group">
+                <label>Username *</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  autoComplete="username"
+                  placeholder="your_username"
+                />
+              </div>
+              <div className="form-group">
+                <label>Email *</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  placeholder="your@email.com"
+                />
+              </div>
+            </>
+          )}
 
           <div className="form-group">
             <label>Password *</label>
@@ -114,60 +201,26 @@ function ProfileForm({ onProfileCreated }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="••••••••"
-              minLength="6"
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
+              placeholder={isLogin ? 'Enter your password' : 'At least 8 characters'}
+              minLength="8"
             />
           </div>
 
-          {!isLogin && (
-            <>
-              <div className="form-group">
-                <label>Name *</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  placeholder="Enter your name"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Age *</label>
-                <input
-                  type="number"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  required
-                  min="18"
-                  max="100"
-                  placeholder="25"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Location</label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="New York, NY"
-                />
-              </div>
-            </>
-          )}
-
           <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Please wait...' : isLogin ? 'Login' : 'Create Profile'}
+            {loading ? 'Please wait...' : isLogin ? 'Sign in' : 'Create account'}
           </button>
         </form>
 
-        <button 
-          className="toggle-auth-btn"
-          onClick={() => setIsLogin(!isLogin)}
-        >
-          {isLogin ? 'Need an account? Sign up' : 'Already have an account? Login'}
-        </button>
+        {!isLogin && (
+          <button
+            type="button"
+            className="toggle-auth-btn"
+            onClick={() => setAuthMode(true)}
+          >
+            Already have an account? Sign in
+          </button>
+        )}
 
         {needsVerification && (
           <button

@@ -1,5 +1,6 @@
 import pool from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { validateUsername } from '@/lib/onboardingValidation';
 
 const MAX_PHOTOS = 6;
 
@@ -11,6 +12,36 @@ const isValidPhotoUrl = (value) => {
   return /^https?:\/\//i.test(url);
 };
 
+const selectUserById = async (userId) =>
+  pool.query(
+    `
+    SELECT id,
+           email,
+           email_verified,
+           COALESCE(username, name, 'User') AS name,
+           username,
+           birthdate,
+           gender,
+           gender_visible,
+           onboarding_completed,
+           safety_acknowledged,
+           COALESCE(EXTRACT(YEAR FROM age(CURRENT_DATE, birthdate))::int, age) AS age,
+           location,
+           about,
+           currently_into,
+           ask_me_about,
+           accent_theme,
+           show_age,
+           show_location,
+           show_active_status,
+           created_at
+    FROM users
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [userId]
+  );
+
 export async function GET(request) {
   const auth = requireAuth(request);
   if (auth.userId === undefined) return auth;
@@ -18,10 +49,7 @@ export async function GET(request) {
   const userId = auth.userId;
 
   try {
-    const userResult = await pool.query(
-      'SELECT id, email, name, age, location, about, currently_into, ask_me_about, accent_theme, show_age, show_location, show_active_status, created_at FROM users WHERE id = $1',
-      [userId]
-    );
+    const userResult = await selectUserById(userId);
 
     if (userResult.rows.length === 0) {
       return Response.json({ error: 'User not found' }, { status: 404 });
@@ -52,20 +80,78 @@ export async function PUT(request) {
 
   try {
     const body = await request.json();
-    const nameValue = body.name;
-    const normalizedName =
-      typeof nameValue === 'string'
-        ? nameValue.trim()
-        : nameValue === null
-          ? null
-          : null;
-    if (typeof nameValue === 'string' && !normalizedName) {
-      return Response.json({ error: 'Username cannot be empty.' }, { status: 400 });
+    const existingResult = await pool.query(
+      `
+      SELECT id, username, name, birthdate, gender, onboarding_completed
+      FROM users
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [userId]
+    );
+    if (!existingResult.rows.length) {
+      return Response.json({ error: 'User not found' }, { status: 404 });
     }
-    const ageInput = body.age;
-    const parsedAge =
-      ageInput === '' || ageInput === null || ageInput === undefined ? Number.NaN : Number(ageInput);
-    const age = Number.isFinite(parsedAge) ? parsedAge : null;
+    const existing = existingResult.rows[0];
+
+    const rawUsername = body.username ?? body.name;
+    let nextUsername = null;
+    if (typeof rawUsername === 'string') {
+      const trimmed = rawUsername.trim();
+      if (!trimmed) {
+        return Response.json({ error: 'Username cannot be empty.' }, { status: 400 });
+      }
+      const usernameCheck = validateUsername(trimmed);
+      if (!usernameCheck.valid) {
+        return Response.json({ error: usernameCheck.error }, { status: 400 });
+      }
+      nextUsername = usernameCheck.username;
+
+      const existingName = await pool.query(
+        `
+        SELECT 1
+        FROM users
+        WHERE LOWER(COALESCE(username, name, '')) = LOWER($1)
+          AND id <> $2
+        LIMIT 1
+        `,
+        [nextUsername, userId]
+      );
+      if (existingName.rows.length > 0) {
+        return Response.json({ error: 'Username is already taken' }, { status: 400 });
+      }
+    }
+
+    if (body.birthdate !== undefined) {
+      if (!existing.onboarding_completed) {
+        return Response.json(
+          { error: 'Complete onboarding to set birthdate.' },
+          { status: 403 }
+        );
+      }
+      const incomingBirthdate = String(body.birthdate || '').trim();
+      const persistedBirthdate = existing.birthdate
+        ? new Date(existing.birthdate).toISOString().slice(0, 10)
+        : '';
+      if (incomingBirthdate && persistedBirthdate && incomingBirthdate !== persistedBirthdate) {
+        return Response.json({ error: 'Birthdate cannot be changed.' }, { status: 400 });
+      }
+    }
+
+    if (body.gender !== undefined) {
+      if (!existing.onboarding_completed) {
+        return Response.json(
+          { error: 'Complete onboarding to set gender.' },
+          { status: 403 }
+        );
+      }
+      const incomingGender = String(body.gender || '').trim().toLowerCase();
+      const persistedGender = String(existing.gender || '').trim().toLowerCase();
+      if (incomingGender && persistedGender && incomingGender !== persistedGender) {
+        return Response.json({ error: 'Gender cannot be changed.' }, { status: 400 });
+      }
+    }
+
     const location = body.location ?? null;
     const about = body.about ?? null;
     const currently_into = (body.currently_into ?? body.currentlyInto) ?? null;
@@ -77,32 +163,18 @@ export async function PUT(request) {
     const show_location = typeof show_location_value === 'boolean' ? show_location_value : null;
     const show_active_status_value = body.show_active_status ?? body.showActiveStatus;
     const show_active_status = typeof show_active_status_value === 'boolean' ? show_active_status_value : null;
+    const gender_visible_value = body.gender_visible ?? body.genderVisible;
+    const gender_visible = typeof gender_visible_value === 'boolean' ? gender_visible_value : null;
     const photos = body.photos;
     const prompts = body.prompts;
     const interests = body.interests;
-
-    if (normalizedName !== null) {
-      const existingName = await pool.query(
-        `
-        SELECT 1
-        FROM users
-        WHERE LOWER(name) = LOWER($1)
-          AND id <> $2
-        LIMIT 1
-        `,
-        [normalizedName, userId]
-      );
-      if (existingName.rows.length > 0) {
-        return Response.json({ error: 'Username is already taken' }, { status: 400 });
-      }
-    }
 
     await pool.query(
       `
       UPDATE users
       SET
-        name = COALESCE($1, name),
-        age = COALESCE($2, age),
+        username = COALESCE($1, username),
+        name = COALESCE($2, name),
         location = COALESCE($3, location),
         about = COALESCE($4, about),
         currently_into = COALESCE($5, currently_into),
@@ -110,12 +182,13 @@ export async function PUT(request) {
         accent_theme = COALESCE($7, accent_theme),
         show_age = COALESCE($8, show_age),
         show_location = COALESCE($9, show_location),
-        show_active_status = COALESCE($10, show_active_status)
-      WHERE id = $11
+        show_active_status = COALESCE($10, show_active_status),
+        gender_visible = COALESCE($11, gender_visible)
+      WHERE id = $12
       `,
       [
-        normalizedName,
-        age,
+        nextUsername,
+        nextUsername,
         location,
         about,
         currently_into,
@@ -124,6 +197,7 @@ export async function PUT(request) {
         show_age,
         show_location,
         show_active_status,
+        gender_visible,
         userId,
       ]
     );
@@ -164,7 +238,8 @@ export async function PUT(request) {
       }
     }
 
-    return Response.json({ success: true });
+    const refreshed = await selectUserById(userId);
+    return Response.json({ success: true, user: refreshed.rows[0] });
   } catch (error) {
     console.error(error);
     return Response.json({ error: 'Server error' }, { status: 500 });

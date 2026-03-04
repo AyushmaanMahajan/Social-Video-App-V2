@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ProfileForm from './ProfileForm';
+import OnboardingFlow from './OnboardingFlow';
 import UserProfile from './UserProfile';
 import SettingsPage from './SettingsPage';
 import EditProfileModal from './EditProfileModal';
@@ -28,7 +29,7 @@ export default function AppClient() {
   const [activeEncounterMatch, setActiveEncounterMatch] = useState(null);
   const [videoActive, setVideoActive] = useState(false);
   const [lastPageBeforeCall, setLastPageBeforeCall] = useState('encounter');
-  const { socket, connected: socketConnected } = useVideoSocket();
+  const { socket, connected: socketConnected } = useVideoSocket(Boolean(currentUser?.onboarding_completed));
   const [onlineIds, setOnlineIds] = useState([]);
   const [floatPos, setFloatPos] = useState({ x: 12, y: 12 });
   const [authBootstrapping, setAuthBootstrapping] = useState(true);
@@ -113,6 +114,21 @@ export default function AppClient() {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
     }
+    setCurrentPage(user?.onboarding_completed ? 'encounter' : 'profile');
+  };
+
+  const handleOnboardingCompleted = (user) => {
+    setCurrentUser((previous) => {
+      const next = {
+        ...previous,
+        ...user,
+        onboarding_completed: true,
+      };
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(USER_CACHE_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
     setCurrentPage('encounter');
   };
 
@@ -190,7 +206,7 @@ export default function AppClient() {
     <div className="app">
       <header className="app-header">
         <h1>Serendipity Stream</h1>
-        {currentUser && (
+        {currentUser && currentUser.onboarding_completed && (
           <div className="header-actions">
             <nav className="nav nav-desktop" aria-label="Desktop navigation">
               {renderNavButtons()}
@@ -210,7 +226,13 @@ export default function AppClient() {
       <main className="app-main">
         {!currentUser && authReady && <ProfileForm onProfileCreated={handleProfileCreated} />}
         {!currentUser && !authReady && <div className="loading">Loading...</div>}
-        {!authBootstrapping && currentUser && currentPage === 'encounter' && !videoActive && (
+        {!authBootstrapping && currentUser && !currentUser.onboarding_completed && (
+          <OnboardingFlow
+            onCompleted={handleOnboardingCompleted}
+            initialUsername={currentUser?.username || currentUser?.name || ''}
+          />
+        )}
+        {!authBootstrapping && currentUser && currentUser.onboarding_completed && currentPage === 'encounter' && !videoActive && (
           <Encounter
             socket={socket}
             socketConnected={socketConnected}
@@ -228,7 +250,7 @@ export default function AppClient() {
           />
         )}
 
-        {!authBootstrapping && currentUser && currentPage === 'interactions' && (
+        {!authBootstrapping && currentUser && currentUser.onboarding_completed && currentPage === 'interactions' && (
           <Interactions
             socket={socket}
             socketConnected={socketConnected}
@@ -236,7 +258,7 @@ export default function AppClient() {
           />
         )}
 
-        {currentUser && currentPage === 'profile' && (
+        {currentUser && currentUser.onboarding_completed && currentPage === 'profile' && (
           <UserProfile
             currentUser={currentUser}
             entryMode={profileEntryMode}
@@ -245,13 +267,13 @@ export default function AppClient() {
         )}
       </main>
 
-      {currentUser && (
+      {currentUser && currentUser.onboarding_completed && (
         <nav className="nav nav-mobile" aria-label="Mobile navigation">
           {renderNavButtons()}
         </nav>
       )}
 
-      {showSettings && (
+      {showSettings && currentUser?.onboarding_completed && (
         <SettingsPage
           onEditProfile={handleOpenEditProfile}
           onSupport={handleOpenSupport}
@@ -261,7 +283,7 @@ export default function AppClient() {
         />
       )}
 
-      {showEditProfile && currentUser && (
+      {showEditProfile && currentUser && currentUser.onboarding_completed && (
         <EditProfileModal
           user={currentUser}
           onClose={() => setShowEditProfile(false)}
@@ -269,7 +291,7 @@ export default function AppClient() {
         />
       )}
 
-      {currentUser && videoActive && (
+      {currentUser && currentUser.onboarding_completed && videoActive && (
         <div
           className={`video-host ${currentPage !== 'encounter' ? 'floating' : 'full'}`}
           style={

@@ -1,5 +1,6 @@
 import pool from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { isBlockedEitherDirection } from '@/lib/userAccess';
 
 async function isMutualEnabled(userId, targetUserId) {
   const res = await pool.query(
@@ -24,6 +25,10 @@ export async function POST(request) {
     const { targetUserId, enabled } = body || {};
     if (!targetUserId || typeof enabled !== 'boolean') {
       return Response.json({ error: 'Invalid payload' }, { status: 400 });
+    }
+
+    if (await isBlockedEitherDirection(userId, Number(targetUserId))) {
+      return Response.json({ error: 'Chat is unavailable for this user.' }, { status: 403 });
     }
 
     await pool.query(

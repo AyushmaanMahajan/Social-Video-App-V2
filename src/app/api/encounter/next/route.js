@@ -1,9 +1,10 @@
 import pool from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { isSuspendedUntil } from '@/lib/userAccess';
 
 /**
  * Return one eligible encounter profile.
- * Excludes: self, reported/blocked pairs, active calls, and skips in last 24h.
+ * Excludes: self, suspended users, blocked pairs, already-reported pairs, and active calls.
  */
 export async function GET(request) {
   const auth = requireAuth(request);
@@ -12,6 +13,40 @@ export async function GET(request) {
   const userId = auth.userId;
 
   try {
+    const selfResult = await pool.query(
+      `
+      SELECT email_verified, onboarding_completed, suspension_until
+      FROM users
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+    if (!selfResult.rows.length) {
+      return Response.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const selfUser = selfResult.rows[0];
+    if (!selfUser.email_verified) {
+      return Response.json(
+        { error: 'Please verify your email before using encounters.' },
+        { status: 403 }
+      );
+    }
+    if (!selfUser.onboarding_completed) {
+      return Response.json(
+        { error: 'Please complete onboarding before entering encounters.', onboardingRequired: true },
+        { status: 403 }
+      );
+    }
+    if (isSuspendedUntil(selfUser.suspension_until)) {
+      return Response.json(
+        { error: 'Your encounter access is temporarily suspended.', suspensionUntil: selfUser.suspension_until },
+        { status: 403 }
+      );
+    }
+
     await pool.query(
       `
       INSERT INTO user_presence (user_id, online, show_status, updated_at)
@@ -24,10 +59,22 @@ export async function GET(request) {
 
     const candidate = await pool.query(
       `
-      SELECT u.id, u.name, u.age, u.location, u.about, u.currently_into, u.ask_me_about, u.created_at
+      SELECT u.id,
+             COALESCE(u.username, u.name, 'User') AS name,
+             COALESCE(EXTRACT(YEAR FROM age(CURRENT_DATE, u.birthdate))::int, u.age) AS age,
+             u.location,
+             u.about,
+             u.currently_into,
+             u.ask_me_about,
+             u.gender,
+             u.gender_visible,
+             u.created_at
       FROM users u
       LEFT JOIN user_presence up ON up.user_id = u.id
       WHERE u.id <> $1
+        AND u.email_verified = TRUE
+        AND u.onboarding_completed = TRUE
+        AND (u.suspension_until IS NULL OR u.suspension_until <= NOW())
         AND EXISTS (
           SELECT 1
           FROM user_presence me
@@ -51,6 +98,12 @@ export async function GET(request) {
           SELECT 1 FROM reports r WHERE r.reporter_id = u.id AND r.reported_user_id = $1
         )
         AND NOT EXISTS (
+          SELECT 1
+          FROM blocks b
+          WHERE (b.blocker_id = $1 AND b.blocked_id = u.id)
+             OR (b.blocker_id = u.id AND b.blocked_id = $1)
+        )
+        AND NOT EXISTS (
           SELECT 1 FROM video_calls vc
           WHERE (vc.caller_id = u.id OR vc.receiver_id = u.id)
             AND vc.status = 'connected'
@@ -67,6 +120,11 @@ export async function GET(request) {
     }
 
     const user = candidate.rows[0];
+    if (!user.gender_visible) {
+      user.gender = null;
+    }
+    delete user.gender_visible;
+
     const [photos, prompts, interests] = await Promise.all([
       pool.query('SELECT url FROM photos WHERE user_id = $1 ORDER BY order_index', [user.id]),
       pool.query('SELECT question, answer FROM prompts WHERE user_id = $1 ORDER BY order_index', [user.id]),

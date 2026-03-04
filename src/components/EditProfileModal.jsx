@@ -9,6 +9,7 @@ function EditProfileModal({ user, onClose, onSave }) {
     name: user.name || '',
     age: user.age || '',
     location: user.location || '',
+    gender: user.gender || '',
     photos: user.photos || [],
     about: user.about || '',
     prompts: user.prompts || [],
@@ -18,7 +19,8 @@ function EditProfileModal({ user, onClose, onSave }) {
     accentTheme: user.accent_theme || user.accentTheme || 'cyan',
     showAge: (user.show_age ?? user.showAge) !== false,
     showLocation: (user.show_location ?? user.showLocation) !== false,
-    showActiveStatus: (user.show_active_status ?? user.showActiveStatus) !== false
+    showActiveStatus: (user.show_active_status ?? user.showActiveStatus) !== false,
+    genderVisible: (user.gender_visible ?? user.genderVisible) !== false
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -78,23 +80,17 @@ function EditProfileModal({ user, onClose, onSave }) {
             <h3 className="section-label">Identity</h3>
             <div className="form-grid">
               <div className="form-field">
-                <label>Name</label>
+                <label>Username</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
-                  placeholder="Your name"
+                  placeholder="Your username"
                 />
               </div>
               <div className="form-field">
                 <label>Age</label>
-                <input
-                  type="number"
-                  value={formData.age}
-                  onChange={(e) => handleChange('age', parseInt(e.target.value))}
-                  min="18"
-                  max="100"
-                />
+                <input type="text" value={formData.age || ''} disabled />
               </div>
               <div className="form-field full-width">
                 <label>Location</label>
@@ -206,6 +202,15 @@ function EditProfileModal({ user, onClose, onSave }) {
                   type="checkbox"
                   checked={formData.showActiveStatus}
                   onChange={(e) => handleChange('showActiveStatus', e.target.checked)}
+                  className="toggle-checkbox"
+                />
+              </label>
+              <label className="toggle-item">
+                <span>Show gender</span>
+                <input
+                  type="checkbox"
+                  checked={formData.genderVisible}
+                  onChange={(e) => handleChange('genderVisible', e.target.checked)}
                   className="toggle-checkbox"
                 />
               </label>

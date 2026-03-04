@@ -147,8 +147,8 @@ export default function Encounter({ socket, socketConnected, onEncounterMatch = 
         setSecondsLeft(0);
         await loadPassedProfiles();
       }
-    } catch {
-      setStatusMessage('Could not load encounters right now.');
+    } catch (error) {
+      setStatusMessage(error?.response?.data?.error || 'Could not load encounters right now.');
     } finally {
       setLoading(false);
       advanceLockRef.current = false;

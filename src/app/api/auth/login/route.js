@@ -10,13 +10,45 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { email, password } = body;
+    const identifier = String(body?.identifier ?? body?.email ?? body?.username ?? '').trim();
+    const password = String(body?.password || '');
 
-    if (!email || !password) {
-      return Response.json({ error: 'Missing email or password' }, { status: 400 });
+    if (!identifier || !password) {
+      return Response.json({ error: 'Missing username/email or password' }, { status: 400 });
     }
 
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await pool.query(
+      `
+      SELECT id,
+             email,
+             password_hash,
+             email_verified,
+             email_verified_at,
+             username,
+             COALESCE(username, name, 'User') AS name,
+             birthdate,
+             gender,
+             gender_visible,
+             onboarding_completed,
+             safety_acknowledged,
+             COALESCE(EXTRACT(YEAR FROM age(CURRENT_DATE, birthdate))::int, age) AS age,
+             location,
+             about,
+             currently_into,
+             ask_me_about,
+             accent_theme,
+             show_age,
+             show_location,
+             show_active_status,
+             created_at
+      FROM users
+      WHERE LOWER(email) = LOWER($1)
+         OR LOWER(username) = LOWER($1)
+         OR LOWER(name) = LOWER($1)
+      LIMIT 1
+      `,
+      [identifier.toLowerCase()]
+    );
 
     if (result.rows.length === 0) {
       return Response.json({ error: 'Invalid credentials' }, { status: 401 });
@@ -34,6 +66,7 @@ export async function POST(request) {
         {
           error: 'Please verify your email before logging in',
           requiresEmailVerification: true,
+          email: user.email,
         },
         { status: 403 }
       );

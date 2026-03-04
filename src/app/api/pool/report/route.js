@@ -1,6 +1,5 @@
-import pool from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { POST as reportEncounter } from '@/app/api/encounter/report/route';
 
-export async function POST() {
-  return Response.json({ error: 'Reporting via matches removed. Use encounter reporting (not implemented).' }, { status: 410 });
+export async function POST(request) {
+  return reportEncounter(request);
 }

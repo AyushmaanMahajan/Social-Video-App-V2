@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoSocket } from '@/lib/useVideoSocket';
 import { getIceServers } from '@/lib/webrtcConfig';
+import { blockUser, reportEncounterUser } from '@/lib/api';
 
 function VideoChat({
   socket: externalSocket,
@@ -27,6 +28,9 @@ function VideoChat({
   const [forceTurn, setForceTurn] = useState(true);
   const [callMessages, setCallMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
+  const [reportReason, setReportReason] = useState('harassment');
+  const [safetyMessage, setSafetyMessage] = useState('');
+  const [safetyBusy, setSafetyBusy] = useState(false);
 
   const isCallerRef = useRef(false);
   const localVideoRef = useRef(null);
@@ -75,6 +79,8 @@ function VideoChat({
     setForceTurn(true);
     setCallMessages([]);
     setChatInput('');
+    setSafetyMessage('');
+    setSafetyBusy(false);
   }, []);
 
   useEffect(() => {
@@ -441,6 +447,39 @@ function VideoChat({
     setChatInput('');
   }, [socket, peer?.id, chatInput, callId]);
 
+  const handleReportUser = useCallback(async () => {
+    if (!peer?.id || safetyBusy) return;
+    setSafetyBusy(true);
+    setSafetyMessage('');
+    try {
+      await reportEncounterUser({
+        reportedUserId: peer.id,
+        encounterId: callId || null,
+        reason: reportReason,
+      });
+      setSafetyMessage('Report submitted. Moderation will review it quickly.');
+    } catch (error) {
+      setSafetyMessage(error?.response?.data?.error || 'Could not submit report right now.');
+    } finally {
+      setSafetyBusy(false);
+    }
+  }, [peer?.id, callId, reportReason, safetyBusy]);
+
+  const handleBlockUser = useCallback(async () => {
+    if (!peer?.id || safetyBusy) return;
+    setSafetyBusy(true);
+    setSafetyMessage('');
+    try {
+      await blockUser(peer.id);
+      setSafetyMessage('User blocked. You will not be matched again.');
+      endCall();
+    } catch (error) {
+      setSafetyMessage(error?.response?.data?.error || 'Could not block this user right now.');
+    } finally {
+      setSafetyBusy(false);
+    }
+  }, [peer?.id, safetyBusy, endCall]);
+
   useEffect(() => {
     if (testMode !== 'disconnect' || callState !== 'connected') return;
     const t = setTimeout(() => endCall(), 3000);
@@ -520,8 +559,28 @@ function VideoChat({
       </div>
       <div className="video-controls-stack">
         <span className="connection-text">{connectionStatus || callState}</span>
+        <div className="video-safety-actions">
+          <select
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            disabled={safetyBusy}
+          >
+            <option value="harassment">Harassment</option>
+            <option value="nudity_or_sexual_content">Nudity / Sexual content</option>
+            <option value="hate_speech">Hate speech</option>
+            <option value="spam">Spam</option>
+            <option value="other">Other</option>
+          </select>
+          <button type="button" className="btn-warn" onClick={handleReportUser} disabled={safetyBusy}>
+            {safetyBusy ? 'Working...' : 'Report'}
+          </button>
+          <button type="button" className="btn-danger" onClick={handleBlockUser} disabled={safetyBusy}>
+            Block
+          </button>
+        </div>
+        {safetyMessage && <span className="connection-text">{safetyMessage}</span>}
         <button type="button" className="btn-end-call" onClick={endCall}>
-          End
+          Leave Encounter
         </button>
       </div>
       {errorMessage && <div className="video-error-toast">{errorMessage}</div>}

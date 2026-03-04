@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../src/lib/db');
 const { createCallAttempt, updateCallStatus, STATUS } = require('./videoController');
 const { logVideoStage } = require('./videoDiagnostics');
+const { isSuspendedUntil } = require('../src/lib/userAccess');
 
 const VIDEO_NAMESPACE = '/video';
 const CALL_TIMEOUT_MS = 45 * 1000;
@@ -208,6 +209,39 @@ async function isChatMutual(userId, targetUserId) {
   return row.me_enabled && row.them_enabled;
 }
 
+async function areUsersBlocked(userId, targetUserId) {
+  const result = await pool.query(
+    `
+    SELECT 1
+    FROM blocks
+    WHERE (blocker_id = $1 AND blocked_id = $2)
+       OR (blocker_id = $2 AND blocked_id = $1)
+    LIMIT 1
+    `,
+    [userId, targetUserId]
+  );
+  return result.rows.length > 0;
+}
+
+async function getEncounterEligibility(userId) {
+  const result = await pool.query(
+    `
+    SELECT email_verified, onboarding_completed, suspension_until
+    FROM users
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [userId]
+  );
+  if (!result.rows.length) return { eligible: false, reason: 'user_missing' };
+
+  const row = result.rows[0];
+  if (!row.email_verified) return { eligible: false, reason: 'email_not_verified' };
+  if (!row.onboarding_completed) return { eligible: false, reason: 'onboarding_incomplete' };
+  if (isSuspendedUntil(row.suspension_until)) return { eligible: false, reason: 'suspended' };
+  return { eligible: true, reason: null };
+}
+
 function isUsersInSameCall(userId, targetUserId) {
   const callerState = userInCall.get(Number(userId));
   if (!callerState) return false;
@@ -228,7 +262,14 @@ async function persistEncounterMessage(senderId, receiverId, encounterId, messag
 
 async function getUserNames(userIds = []) {
   if (!userIds.length) return new Map();
-  const res = await pool.query('SELECT id, name FROM users WHERE id = ANY($1)', [userIds]);
+  const res = await pool.query(
+    `
+    SELECT id, COALESCE(username, name, 'Someone') AS name
+    FROM users
+    WHERE id = ANY($1)
+    `,
+    [userIds]
+  );
   const map = new Map();
   res.rows.forEach((row) => {
     map.set(Number(row.id), row.name || 'Someone');
@@ -238,6 +279,14 @@ async function getUserNames(userIds = []) {
 
 async function emitEncounterMatch(videoNs, userAId, userBId) {
   if (userInCall.has(userAId) || userInCall.has(userBId)) return;
+  if (await areUsersBlocked(userAId, userBId)) return;
+
+  const [eligibilityA, eligibilityB] = await Promise.all([
+    getEncounterEligibility(userAId),
+    getEncounterEligibility(userBId),
+  ]);
+  if (!eligibilityA.eligible || !eligibilityB.eligible) return;
+
   const key = pairKey(userAId, userBId);
   if (matchingEncounterPairs.has(key)) return;
   matchingEncounterPairs.add(key);
@@ -334,10 +383,16 @@ function registerVideoNamespace(io) {
       meta: { activeSockets: userSockets.get(Number(userId))?.size || 0 },
     });
 
-    socket.on('encounter-ready', () => {
+    socket.on('encounter-ready', async () => {
       if (userInCall.has(userId)) {
         return socket.emit('error', { message: 'Already in a call' });
       }
+
+      const eligibility = await getEncounterEligibility(userId);
+      if (!eligibility.eligible) {
+        return socket.emit('error', { message: `Encounter unavailable: ${eligibility.reason}` });
+      }
+
       const current = userInEncounter.get(userId);
       if (current?.timer) clearTimeout(current.timer);
       userInEncounter.set(userId, { requestedUserId: null, ready: true, timer: null, socketId: socket.id });
@@ -351,6 +406,9 @@ function registerVideoNamespace(io) {
     socket.on('encounter-request', async (payload) => {
       const { targetUserId } = payload || {};
       if (!targetUserId) return socket.emit('error', { message: 'targetUserId required' });
+      if (Number(targetUserId) === Number(userId)) {
+        return socket.emit('encounter-timeout', { reason: 'invalid_target' });
+      }
       logVideoStage({
         stage: 'call-request',
         status: 'ok',
@@ -365,6 +423,22 @@ function registerVideoNamespace(io) {
       }
       if (userInCall.has(Number(targetUserId))) {
         return socket.emit('encounter-timeout', { reason: 'target_in_call' });
+      }
+
+      const [selfEligibility, targetEligibility, blocked] = await Promise.all([
+        getEncounterEligibility(userId),
+        getEncounterEligibility(Number(targetUserId)),
+        areUsersBlocked(userId, Number(targetUserId)),
+      ]);
+
+      if (!selfEligibility.eligible) {
+        return socket.emit('encounter-timeout', { reason: selfEligibility.reason || 'self_unavailable' });
+      }
+      if (!targetEligibility.eligible) {
+        return socket.emit('encounter-timeout', { reason: targetEligibility.reason || 'target_unavailable' });
+      }
+      if (blocked) {
+        return socket.emit('encounter-timeout', { reason: 'blocked' });
       }
 
       const state = userInEncounter.get(userId) || { requestedUserId: null, ready: true, timer: null, socketId: socket.id };
@@ -574,6 +648,9 @@ function registerVideoNamespace(io) {
       const trimmed = text.trim();
       if (!trimmed) return;
       const numericTarget = Number(targetUserId);
+      if (await areUsersBlocked(userId, numericTarget)) {
+        return socket.emit('chat-locked', { peerId: numericTarget });
+      }
       const normalizedEncounterId =
         encounterId !== undefined && encounterId !== null && Number.isFinite(Number(encounterId))
           ? Number(encounterId)
@@ -603,6 +680,9 @@ function registerVideoNamespace(io) {
     socket.on('chat-toggle', async (payload) => {
       const { targetUserId, enabled } = payload || {};
       if (!targetUserId || typeof enabled !== 'boolean') return;
+      if (await areUsersBlocked(userId, Number(targetUserId))) {
+        return socket.emit('chat-locked', { peerId: Number(targetUserId) });
+      }
       try {
         await pool.query(
           `

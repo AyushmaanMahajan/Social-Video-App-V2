@@ -2,12 +2,19 @@ import pool from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 
 const MAX_PHOTOS = 6;
+const PHOTO_BLOCKED_TERMS = ['nude', 'nudity', 'porn', 'explicit', 'nsfw', 'sexual'];
 
 const isValidPhotoUrl = (value) => {
   const url = String(value || '').trim();
   if (!url) return false;
   if (/^data:/i.test(url)) return false;
   return /^https?:\/\//i.test(url);
+};
+
+const passesBasicPhotoModeration = (value) => {
+  const url = String(value || '').toLowerCase();
+  if (!url) return false;
+  return !PHOTO_BLOCKED_TERMS.some((term) => url.includes(term));
 };
 
 async function getPhotoUrls(userId) {
@@ -41,6 +48,9 @@ export async function POST(request) {
 
     if (!isValidPhotoUrl(url)) {
       return Response.json({ error: 'Invalid photo URL. Only http(s) URLs are allowed.' }, { status: 400 });
+    }
+    if (!passesBasicPhotoModeration(url)) {
+      return Response.json({ error: 'Photo did not pass moderation checks.' }, { status: 400 });
     }
 
     const countResult = await pool.query('SELECT COUNT(*)::int AS total FROM photos WHERE user_id = $1', [auth.userId]);
@@ -82,6 +92,9 @@ export async function PUT(request) {
     }
     if (!isValidPhotoUrl(url)) {
       return Response.json({ error: 'Invalid photo URL. Only http(s) URLs are allowed.' }, { status: 400 });
+    }
+    if (!passesBasicPhotoModeration(url)) {
+      return Response.json({ error: 'Photo did not pass moderation checks.' }, { status: 400 });
     }
 
     const updateResult = await pool.query(

@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { verifyEmailToken } from '@/lib/emailVerification';
+import { getClientIp, isRateLimited } from '@/lib/rateLimit';
 
 export async function POST(request) {
   try {
@@ -13,6 +14,19 @@ export async function POST(request) {
       return Response.json({ error: 'Verification token is required' }, { status: 400 });
     }
 
+    const ip = getClientIp(request);
+    const tooManyAttempts = isRateLimited({
+      key: `verify-email:${ip}`,
+      limit: 20,
+      windowMs: 30 * 60 * 1000,
+    });
+    if (tooManyAttempts) {
+      return Response.json(
+        { error: 'Too many verification attempts. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const user = await verifyEmailToken(token);
     if (!user) {
       return Response.json({ error: 'Invalid or expired verification link' }, { status: 400 });
@@ -23,6 +37,7 @@ export async function POST(request) {
       success: true,
       user,
       token: authToken,
+      onboardingRequired: !user.onboarding_completed,
     });
   } catch (error) {
     console.error('verify-email error', error);
