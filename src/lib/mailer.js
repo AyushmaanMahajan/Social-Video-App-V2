@@ -1,65 +1,25 @@
-const nodemailer = require('nodemailer');
-
 function isMailerConfigured() {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const apiKey = process.env.SENDGRID_API_KEY;
   const from = process.env.EMAIL_FROM;
-  return Boolean(host && user && pass && from);
+  return Boolean(apiKey && from);
 }
 
 function getMailerConfig() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const secureRaw = process.env.SMTP_SECURE;
-  const secureExplicit = secureRaw === 'true' || secureRaw === 'false';
-  const secure = secureExplicit ? secureRaw === 'true' : port === 465;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const apiKey = process.env.SENDGRID_API_KEY;
   const from = process.env.EMAIL_FROM;
+  const apiBaseUrl = process.env.SENDGRID_API_BASE_URL || 'https://api.sendgrid.com';
 
   if (!isMailerConfigured()) {
-    const error = new Error('SMTP_HOST, SMTP_USER, SMTP_PASS, and EMAIL_FROM must be configured');
+    const error = new Error('SENDGRID_API_KEY and EMAIL_FROM must be configured');
     error.code = 'MAILER_NOT_CONFIGURED';
     throw error;
   }
 
   return {
-    host,
-    port,
-    secure,
-    secureExplicit,
-    auth: { user, pass },
+    apiKey,
     from,
+    apiBaseUrl: apiBaseUrl.replace(/\/$/, ''),
   };
-}
-
-function createTransporter(config) {
-  return nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: config.auth,
-    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 15000),
-    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 15000),
-    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 20000),
-    tls: {
-      servername: config.host,
-    },
-  });
-}
-
-function shouldRetryWithFlippedSecure(error) {
-  const command = String(error?.command || '');
-  const code = String(error?.code || '');
-  const message = String(error?.message || '').toLowerCase();
-  if (command !== 'CONN') return false;
-
-  const isTimeout = code === 'ETIMEDOUT' || message.includes('greeting never received');
-  const isTlsMismatch =
-    code === 'ESOCKET' &&
-    (message.includes('wrong version number') || message.includes('ssl routines'));
-  return isTimeout || isTlsMismatch;
 }
 
 function getBaseUrl() {
@@ -72,36 +32,58 @@ function getVerificationUrl(token) {
 
 async function sendVerificationEmail({ toEmail, toName, token }) {
   const config = getMailerConfig();
-  const { from } = config;
   const verifyUrl = getVerificationUrl(token);
   const displayName = toName || 'there';
-  const message = {
-    from,
-    to: toEmail,
-    subject: 'Verify your Serendipity Stream email',
-    text: `Hi ${displayName}, verify your email by opening this link: ${verifyUrl}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-        <p>Hi ${displayName},</p>
-        <p>Verify your email to begin onboarding.</p>
-        <p><a href="${verifyUrl}">Verify Email</a></p>
-        <p>This link expires in 20 minutes.</p>
-      </div>
-    `,
+
+  const payload = {
+    personalizations: [
+      {
+        to: [{ email: toEmail }],
+        subject: 'Verify your Serendipity Stream email',
+      },
+    ],
+    from: { email: config.from },
+    content: [
+      {
+        type: 'text/plain',
+        value: `Hi ${displayName}, verify your email by opening this link: ${verifyUrl}`,
+      },
+      {
+        type: 'text/html',
+        value: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+            <p>Hi ${displayName},</p>
+            <p>Verify your email to begin onboarding.</p>
+            <p><a href="${verifyUrl}">Verify Email</a></p>
+            <p>This link expires in 20 minutes.</p>
+          </div>
+        `,
+      },
+    ],
   };
 
-  const mailer = createTransporter(config);
-  try {
-    await mailer.sendMail(message);
-  } catch (error) {
-    if (!shouldRetryWithFlippedSecure(error)) {
-      throw error;
-    }
+  const response = await fetch(`${config.apiBaseUrl}/v3/mail/send`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 
-    const retryConfig = { ...config, secure: !config.secure };
-    const retryMailer = createTransporter(retryConfig);
-    await retryMailer.sendMail(message);
+  if (response.ok) return;
+
+  let responseText = '';
+  try {
+    responseText = await response.text();
+  } catch {
+    responseText = '';
   }
+
+  const error = new Error(`SendGrid API error (${response.status}): ${responseText || response.statusText}`);
+  error.code = 'SENDGRID_API_ERROR';
+  error.responseCode = response.status;
+  throw error;
 }
 
 module.exports = {
