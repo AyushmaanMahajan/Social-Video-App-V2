@@ -1,7 +1,5 @@
 const nodemailer = require('nodemailer');
 
-let transporter = null;
-
 function isMailerConfigured() {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
@@ -13,7 +11,9 @@ function isMailerConfigured() {
 function getMailerConfig() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
-  const secure = String(process.env.SMTP_SECURE || 'false') === 'true';
+  const secureRaw = process.env.SMTP_SECURE;
+  const secureExplicit = secureRaw === 'true' || secureRaw === 'false';
+  const secure = secureExplicit ? secureRaw === 'true' : port === 465;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   const from = process.env.EMAIL_FROM;
@@ -28,21 +28,38 @@ function getMailerConfig() {
     host,
     port,
     secure,
+    secureExplicit,
     auth: { user, pass },
     from,
   };
 }
 
-function getTransporter() {
-  if (transporter) return transporter;
-  const config = getMailerConfig();
-  transporter = nodemailer.createTransport({
+function createTransporter(config) {
+  return nodemailer.createTransport({
     host: config.host,
     port: config.port,
     secure: config.secure,
     auth: config.auth,
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 15000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 15000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 20000),
+    tls: {
+      servername: config.host,
+    },
   });
-  return transporter;
+}
+
+function shouldRetryWithFlippedSecure(error) {
+  const command = String(error?.command || '');
+  const code = String(error?.code || '');
+  const message = String(error?.message || '').toLowerCase();
+  if (command !== 'CONN') return false;
+
+  const isTimeout = code === 'ETIMEDOUT' || message.includes('greeting never received');
+  const isTlsMismatch =
+    code === 'ESOCKET' &&
+    (message.includes('wrong version number') || message.includes('ssl routines'));
+  return isTimeout || isTlsMismatch;
 }
 
 function getBaseUrl() {
@@ -54,12 +71,11 @@ function getVerificationUrl(token) {
 }
 
 async function sendVerificationEmail({ toEmail, toName, token }) {
-  const { from } = getMailerConfig();
+  const config = getMailerConfig();
+  const { from } = config;
   const verifyUrl = getVerificationUrl(token);
   const displayName = toName || 'there';
-  const mailer = getTransporter();
-
-  await mailer.sendMail({
+  const message = {
     from,
     to: toEmail,
     subject: 'Verify your Serendipity Stream email',
@@ -72,7 +88,20 @@ async function sendVerificationEmail({ toEmail, toName, token }) {
         <p>This link expires in 20 minutes.</p>
       </div>
     `,
-  });
+  };
+
+  const mailer = createTransporter(config);
+  try {
+    await mailer.sendMail(message);
+  } catch (error) {
+    if (!shouldRetryWithFlippedSecure(error)) {
+      throw error;
+    }
+
+    const retryConfig = { ...config, secure: !config.secure };
+    const retryMailer = createTransporter(retryConfig);
+    await retryMailer.sendMail(message);
+  }
 }
 
 module.exports = {
