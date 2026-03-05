@@ -2,50 +2,85 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { motion } from "framer-motion"
-
-const reveal = {
-  hidden: { opacity: 0, y: 28 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.62, ease: [0.16, 1, 0.3, 1] },
-  },
-}
+import { motion, useMotionValue, useSpring } from "framer-motion"
 
 const steps = [
   {
-    title: "Enter the Pool",
-    description: "Step into a live queue of people ready for real-time conversation.",
+    number: "01",
+    title: "Enter the Room",
+    description:
+      "Join a live pool of people who are ready to talk right now.",
   },
   {
+    number: "02",
     title: "30 Second Intro",
-    description: "Get a fast first impression with a structured, time-boxed encounter.",
+    description:
+      "A short introduction window lets both people get a quick feel for the interaction.",
   },
   {
-    title: "Connect or Pass",
-    description: "Continue only when interest is mutual. No endless swiping loops.",
+    number: "03",
+    title: "Continue or Move On",
+    description:
+      "If both people want to keep talking, the conversation continues. Otherwise you move on.",
   },
 ]
 
-const safetyPoints = [
-  "Verified identity signals",
-  "Instant in-call reporting",
-  "Fast block and leave controls",
-  "Active moderation review",
+const signals = [
+  "Real-time moderation",
+  "Easy in-call reporting",
+  "Quick leave controls",
+  "Identity signal checks",
 ]
 
-function Reveal({ children, className = "" }) {
+function FadeUp({ children, delay = 0 }) {
   return (
     <motion.div
-      variants={reveal}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, amount: 0.25 }}
-      className={className}
+      initial={{ opacity: 0, y: 40 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.15 }}
+      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay }}
     >
       {children}
     </motion.div>
+  )
+}
+
+function Orb() {
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "320px",
+        height: "320px",
+        margin: "0 auto",
+      }}
+    >
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          style={{
+            position: "absolute",
+            inset: `${i * 26}px`,
+            borderRadius: "50%",
+            border: `1px solid rgba(147,210,255,${0.15 - i * 0.04})`,
+          }}
+          animate={{ rotate: i % 2 === 0 ? 360 : -360 }}
+          transition={{ duration: 20 + i * 8, repeat: Infinity, ease: "linear" }}
+        />
+      ))}
+
+      <motion.div
+        style={{
+          position: "absolute",
+          inset: "80px",
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(147,210,255,0.25) 0%, rgba(147,210,255,0.04) 60%, transparent 100%)",
+        }}
+        animate={{ scale: [1, 1.25, 1], opacity: [0.5, 1, 0.5] }}
+        transition={{ duration: 3, repeat: Infinity }}
+      />
+    </div>
   )
 }
 
@@ -53,17 +88,29 @@ export default function Home() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
 
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
+
+  const springX = useSpring(mouseX, { stiffness: 40, damping: 20 })
+  const springY = useSpring(mouseY, { stiffness: 40, damping: 20 })
+
+  useEffect(() => {
+    const move = (e) => {
+      mouseX.set((e.clientX / window.innerWidth - 0.5) * 30)
+      mouseY.set((e.clientY / window.innerHeight - 0.5) * 30)
+    }
+    window.addEventListener("mousemove", move)
+    return () => window.removeEventListener("mousemove", move)
+  }, [])
+
   useEffect(() => {
     async function checkAuth() {
       try {
         const res = await fetch("/api/auth/session")
         const data = await res.json()
 
-        if (data?.user) {
-          router.push("/encounter")
-        } else {
-          setLoading(false)
-        }
+        if (data?.user) router.push("/encounter")
+        else setLoading(false)
       } catch {
         setLoading(false)
       }
@@ -75,201 +122,328 @@ export default function Home() {
   if (loading) return null
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#06080F] text-white">
-      <div className="pointer-events-none fixed inset-0 opacity-[0.04] bg-[url('/noise.png')] mix-blend-overlay" />
-      <div className="pointer-events-none fixed inset-0 opacity-[0.03] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:22px_22px]" />
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:wght@300;600&family=DM+Sans:wght@300;400;500&display=swap');
 
-      <motion.div
-        className="pointer-events-none fixed inset-0 -z-20 bg-[radial-gradient(70%_60%_at_20%_15%,rgba(168,85,247,0.28),transparent_65%),radial-gradient(68%_62%_at_85%_20%,rgba(91,140,255,0.26),transparent_68%),radial-gradient(60%_55%_at_50%_90%,rgba(168,85,247,0.16),transparent_70%)] bg-[length:160%_160%]"
-        animate={{ backgroundPosition: ["0% 0%", "100% 100%", "0% 0%"] }}
-        transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-      />
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-b from-[#06080F]/30 via-[#06080F]/70 to-[#06080F]" />
+        :root{
+          --void:#03040A;
+          --deep:#070A12;
+          --surface:#0C1018;
+          --blue:#93D2FF;
+          --border:rgba(147,210,255,0.09);
+          --muted:rgba(240,244,255,0.4);
+          --white:#F0F4FF;
+        }
 
-      {/* HERO */}
-      <section className="bg-[#06080F] px-4 py-32 sm:px-8 lg:px-16">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2">
-          <Reveal className="relative text-center lg:text-left">
-            <div className="absolute left-1/2 top-40 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-[#A855F7]/20 blur-[160px]" />
+        body{
+          font-family:'DM Sans',sans-serif;
+          background:var(--void);
+          color:var(--white);
+          overflow-x:hidden;
+        }
 
-            <p className="relative inline-flex rounded-full bg-[#0B0F1A]/80 px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#C6D7FF] shadow-[0_10px_40px_rgba(91,140,255,0.12)] backdrop-blur-xl">
-              Future of Video Encounters
-            </p>
-            <h1 className="relative mt-6 text-5xl font-black leading-[1.05] sm:text-6xl lg:text-[82px]">
-              Meet Someone
-              <span className="block bg-gradient-to-r from-[#5B8CFF] to-[#A855F7] bg-clip-text text-transparent">
-                In 30 Seconds
-              </span>
-            </h1>
-            <p className="relative mt-6 max-w-xl text-base text-slate-200 sm:text-lg">
-              A futuristic encounter flow designed for fast connection, stronger trust, and safer conversations.
-            </p>
+        .btn-primary{
+          font-family:'Bebas Neue';
+          letter-spacing:0.14em;
+          background:var(--blue);
+          color:black;
+          padding:0 42px;
+          height:54px;
+          border:none;
+          cursor:pointer;
+        }
 
-            <div className="relative mt-10 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
-              <motion.button
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                animate={{
-                  boxShadow: [
-                    "0 0 20px rgba(168,85,247,0.2)",
-                    "0 0 40px rgba(168,85,247,0.6)",
-                    "0 0 20px rgba(168,85,247,0.2)",
-                  ],
-                }}
-                transition={{ duration: 3, repeat: Infinity }}
-                onClick={() => router.push("/encounter?auth=signup")}
-                className="rounded-xl bg-gradient-to-r from-[#5B8CFF] to-[#A855F7] px-10 py-4 text-base font-bold text-white"
-              >
-                Create Account
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => router.push("/encounter?auth=login")}
-                className="rounded-xl bg-[#0B0F1A]/90 px-10 py-4 text-base font-semibold text-slate-100 shadow-[0_10px_40px_rgba(91,140,255,0.12)] backdrop-blur-xl"
-              >
-                Sign In
-              </motion.button>
-            </div>
-          </Reveal>
+        .btn-ghost{
+          font-family:'Bebas Neue';
+          letter-spacing:0.14em;
+          background:transparent;
+          border:1px solid var(--border);
+          color:var(--blue);
+          padding:0 36px;
+          height:54px;
+        }
 
-          <Reveal className="mx-auto w-full max-w-md">
-            <div className="relative mx-auto h-[420px] w-[420px] max-w-full">
-              <motion.div
-                className="absolute inset-0 rounded-full bg-gradient-to-r from-[#5B8CFF] to-[#A855F7] opacity-60 blur-[120px]"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 6, repeat: Infinity }}
-              />
+        .step-card{
+          background:var(--surface);
+          border:1px solid var(--border);
+          padding:48px 36px;
+          min-height:260px;
+        }
+      `}</style>
 
-              <motion.div
-                className="absolute inset-0 rounded-full border border-[#5B8CFF]/40"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-              />
+      <main style={{ minHeight: "100vh" }}>
 
-              <motion.div
-                className="absolute inset-16 rounded-full border border-[#A855F7]/40"
-                animate={{ rotate: -360 }}
-                transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
-              />
-
-              <motion.div
-                className="absolute inset-32 rounded-full bg-[#5B8CFF]/30 blur-xl"
-                animate={{ scale: [1, 1.4, 1] }}
-                transition={{ duration: 4, repeat: Infinity }}
-              />
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* SIGNAL */}
-      <section className="bg-[#0B0F1A] px-4 py-32 sm:px-8 lg:px-16">
-        <Reveal className="mx-auto max-w-5xl rounded-3xl bg-[#0B0F1A]/90 p-8 backdrop-blur-2xl shadow-[0_10px_40px_rgba(91,140,255,0.12)]">
-          <h2 className="text-center text-3xl font-bold sm:text-4xl">Signal Connection</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-slate-200">
-            Real-time handshake and matching is designed to be fast, transparent, and resilient.
-          </p>
-
-          <div className="relative mx-auto mt-10 h-36 w-full max-w-3xl">
-            <div className="absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-[#5B8CFF] shadow-[0_0_20px_#5B8CFF]" />
-            <div className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-[#A855F7] shadow-[0_0_20px_#A855F7]" />
-            <div className="absolute left-6 right-6 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-[#5B8CFF]/20 via-[#A855F7] to-[#A855F7]/20" />
-
-            <motion.div
-              className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#5B8CFF]"
-              style={{ left: "1.5rem" }}
-              animate={{ left: ["1.5rem", "calc(100% - 1.75rem)", "1.5rem"], opacity: [0.2, 1, 0.2] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#A855F7]"
-              style={{ right: "1.5rem" }}
-              animate={{ right: ["1.5rem", "calc(100% - 1.75rem)", "1.5rem"], opacity: [0.2, 1, 0.2] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
-            />
-          </div>
-        </Reveal>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section className="bg-[#06080F] px-4 py-32 sm:px-8 lg:px-16">
-        <Reveal className="mx-auto max-w-6xl">
-          <h2 className="text-center text-3xl font-bold sm:text-4xl">How It Works</h2>
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {steps.map((step, index) => (
-              <motion.div
-                key={step.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={{ delay: index * 0.08, duration: 0.5 }}
-                className="rounded-2xl bg-[#0B0F1A] p-7 shadow-[0_10px_40px_rgba(91,140,255,0.12)]"
-              >
-                <div className="mb-3 text-sm font-bold text-[#A855F7]">Step {index + 1}</div>
-                <h3 className="text-xl font-bold text-white">{step.title}</h3>
-                <p className="mt-3 text-sm text-slate-300">{step.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </Reveal>
-      </section>
-
-      {/* SAFETY + PHILOSOPHY */}
-      <section className="bg-[#0B0F1A] px-4 py-32 sm:px-8 lg:px-16">
-        <Reveal className="mx-auto max-w-5xl rounded-3xl bg-[#0B0F1A]/90 p-8 text-center backdrop-blur-2xl shadow-[0_10px_40px_rgba(168,85,247,0.14)] sm:p-10">
-          <div className="mx-auto mb-8 h-24 w-24 rounded-full bg-[#A855F7]/30 blur-2xl" />
-          <h2 className="text-3xl font-bold sm:text-4xl">Safety by Default</h2>
-          <p className="mx-auto mt-4 max-w-3xl text-slate-200">
-            The experience is designed so users can stay in control from first contact to final decision.
-          </p>
-
-          <div className="mt-8 grid gap-3 sm:grid-cols-2">
-            {safetyPoints.map((point, index) => (
-              <motion.div
-                key={point}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.06, duration: 0.45 }}
-                className="rounded-xl bg-[#06080F]/80 px-4 py-3 text-sm text-slate-100 shadow-[0_10px_40px_rgba(91,140,255,0.08)]"
-              >
-                {point}
-              </motion.div>
-            ))}
+        {/* NAV */}
+        <nav
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            padding: "22px 56px",
+            display: "flex",
+            justifyContent: "space-between",
+            backdropFilter: "blur(18px)",
+            borderBottom: "1px solid var(--border)",
+            background: "rgba(3,4,10,0.8)",
+            zIndex: 100,
+          }}
+        >
+          <div style={{ fontFamily: "Bebas Neue", letterSpacing: "0.2em" }}>
+            ENCOUNTER
           </div>
 
-          <p className="mx-auto mt-10 max-w-3xl text-base leading-relaxed text-slate-300 sm:text-lg">
-            “Technology should reduce noise, not attention. The best connections happen when design protects time,
-            intent, and safety.”
-          </p>
-        </Reveal>
-      </section>
+          <div style={{ display: "flex", gap: "30px", alignItems: "center" }}>
+            <a href="#how">How it works</a>
 
-      {/* CTA */}
-      <section className="bg-[#06080F] px-4 pb-24 pt-8 sm:px-8 lg:px-16">
-        <Reveal className="mx-auto max-w-5xl rounded-3xl bg-gradient-to-r from-[#5B8CFF]/25 via-[#0B0F1A]/90 to-[#A855F7]/25 p-8 text-center backdrop-blur-2xl shadow-[0_10px_40px_rgba(168,85,247,0.14)] sm:p-12">
-          <h2 className="text-5xl font-bold">Ready to Connect?</h2>
-          <p className="mt-3 text-slate-200">Create your account and step into your first 30-second encounter.</p>
-          <motion.button
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            animate={{
-              boxShadow: [
-                "0 0 20px rgba(168,85,247,0.3)",
-                "0 0 50px rgba(168,85,247,0.7)",
-                "0 0 20px rgba(168,85,247,0.3)",
-              ],
+            <motion.button
+              className="btn-ghost"
+              whileHover={{ scale: 1.02 }}
+              onClick={() => router.push("/encounter?auth=login")}
+            >
+              SIGN IN
+            </motion.button>
+          </div>
+        </nav>
+
+        {/* HERO */}
+        <section
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            padding: "0 56px",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: "1200px",
+              margin: "0 auto",
+              width: "100%",
+              display: "grid",
+              gridTemplateColumns: "1.1fr 0.9fr",
+              gap: "80px",
+              alignItems: "center",
+              paddingTop: "100px",
             }}
-            transition={{ duration: 3, repeat: Infinity }}
-            onClick={() => router.push("/encounter?auth=signup")}
-            className="mt-7 rounded-xl bg-gradient-to-r from-[#5B8CFF] to-[#A855F7] px-10 py-4 text-base font-bold text-white"
           >
-            Create Account
-          </motion.button>
-          <p className="mt-3 text-xs text-slate-400">Takes less than 60 seconds · 18+ community</p>
-        </Reveal>
-      </section>
-    </main>
+            <FadeUp>
+              <h1
+                style={{
+                  fontFamily: "Bebas Neue",
+                  fontSize: "clamp(70px,8vw,110px)",
+                  lineHeight: 0.95,
+                  letterSpacing: "0.05em",
+                }}
+              >
+                TALK TO
+                <br />
+                SOMEONE
+                <br />
+                <span style={{ color: "var(--blue)" }}>RIGHT NOW</span>
+              </h1>
+
+              <p
+                style={{
+                  marginTop: "28px",
+                  maxWidth: "420px",
+                  lineHeight: 1.8,
+                  color: "var(--muted)",
+                }}
+              >
+                A space designed for spontaneous conversations. Drop in,
+                meet someone new, talk for a moment, and see where it goes.
+                No endless feeds. Just people.
+              </p>
+
+              <div style={{ display: "flex", gap: "14px", marginTop: "40px" }}>
+                <motion.button
+                  className="btn-primary"
+                  whileHover={{ scale: 1.03 }}
+                  onClick={() => router.push("/encounter?auth=signup")}
+                >
+                  START TALKING
+                </motion.button>
+
+                <motion.button
+                  className="btn-ghost"
+                  whileHover={{ scale: 1.03 }}
+                  onClick={() => router.push("/encounter?auth=login")}
+                >
+                  SIGN IN
+                </motion.button>
+              </div>
+            </FadeUp>
+
+            <FadeUp delay={0.2}>
+              <motion.div style={{ x: springX, y: springY }}>
+                <Orb />
+              </motion.div>
+            </FadeUp>
+          </div>
+        </section>
+
+        {/* HOW IT WORKS */}
+        <section
+          id="how"
+          style={{
+            padding: "120px 56px",
+            maxWidth: "1180px",
+            margin: "0 auto",
+          }}
+        >
+          <FadeUp>
+            <h2
+              style={{
+                fontFamily: "Bebas Neue",
+                fontSize: "clamp(50px,5vw,70px)",
+                marginBottom: "60px",
+              }}
+            >
+              HOW IT WORKS
+            </h2>
+          </FadeUp>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3,1fr)",
+              gap: "1px",
+              background: "var(--border)",
+            }}
+          >
+            {steps.map((step, i) => (
+              <FadeUp key={step.number} delay={i * 0.1}>
+                <div className="step-card">
+                  <div
+                    style={{
+                      fontFamily: "Bebas Neue",
+                      fontSize: "64px",
+                      color: "rgba(147,210,255,0.08)",
+                    }}
+                  >
+                    {step.number}
+                  </div>
+
+                  <h3 style={{ marginTop: "10px" }}>{step.title}</h3>
+
+                  <p
+                    style={{
+                      marginTop: "10px",
+                      color: "var(--muted)",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {step.description}
+                  </p>
+                </div>
+              </FadeUp>
+            ))}
+          </div>
+        </section>
+
+        {/* SIGNALS */}
+        <section
+          style={{
+            padding: "120px 56px",
+            background: "var(--deep)",
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: "1100px",
+              margin: "0 auto",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "80px",
+            }}
+          >
+            <FadeUp>
+              <h2
+                style={{
+                  fontFamily: "Bebas Neue",
+                  fontSize: "clamp(42px,4vw,60px)",
+                }}
+              >
+                BUILT FOR
+                <br />
+                REAL CONVERSATIONS
+              </h2>
+
+              <p style={{ marginTop: "20px", color: "var(--muted)" }}>
+                Simple controls and lightweight moderation keep interactions
+                comfortable without getting in the way of the conversation.
+              </p>
+            </FadeUp>
+
+            <FadeUp delay={0.2}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                {signals.map((s) => (
+                  <div
+                    key={s}
+                    style={{
+                      padding: "16px 20px",
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                    }}
+                  >
+                    {s}
+                  </div>
+                ))}
+              </div>
+            </FadeUp>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section
+          style={{
+            padding: "140px 56px",
+            textAlign: "center",
+          }}
+        >
+          <FadeUp>
+            <h2
+              style={{
+                fontFamily: "Bebas Neue",
+                fontSize: "clamp(60px,7vw,90px)",
+              }}
+            >
+              JOIN THE
+              <br />
+              CONVERSATION
+            </h2>
+
+            <p style={{ marginTop: "24px", color: "var(--muted)" }}>
+              It takes less than a minute to start.
+            </p>
+
+            <motion.button
+              className="btn-primary"
+              style={{ marginTop: "40px", fontSize: "20px", height: "58px" }}
+              whileHover={{ scale: 1.05 }}
+              onClick={() => router.push("/encounter?auth=signup")}
+            >
+              START NOW
+            </motion.button>
+          </FadeUp>
+        </section>
+
+        <footer
+          style={{
+            borderTop: "1px solid var(--border)",
+            padding: "26px 56px",
+            background: "var(--deep)",
+            textAlign: "center",
+            fontSize: "12px",
+            color: "var(--muted)",
+          }}
+        >
+          © {new Date().getFullYear()} Encounter
+        </footer>
+      </main>
+    </>
   )
 }
