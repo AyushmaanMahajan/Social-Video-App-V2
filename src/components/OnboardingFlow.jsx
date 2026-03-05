@@ -3,7 +3,8 @@
 import React, { useMemo, useState } from 'react';
 import { completeOnboarding } from '@/lib/api';
 
-const STEPS = ['username', 'birthdate', 'gender', 'safety', 'photo'];
+const DEFAULT_STEPS = ['username', 'birthdate', 'gender', 'safety', 'photo'];
+const STEPS_WITHOUT_USERNAME = ['birthdate', 'gender', 'safety', 'photo'];
 
 const GENDER_OPTIONS = [
   { value: 'female', label: 'Female' },
@@ -13,8 +14,14 @@ const GENDER_OPTIONS = [
 ];
 
 function OnboardingFlow({ onCompleted, initialUsername = '' }) {
+  const normalizedInitialUsername = String(initialUsername || '').trim();
+  const steps = useMemo(
+    () => (normalizedInitialUsername ? STEPS_WITHOUT_USERNAME : DEFAULT_STEPS),
+    [normalizedInitialUsername]
+  );
+
   const [stepIndex, setStepIndex] = useState(0);
-  const [username, setUsername] = useState(initialUsername);
+  const [username, setUsername] = useState(normalizedInitialUsername);
   const [birthdate, setBirthdate] = useState('');
   const [gender, setGender] = useState('female');
   const [genderVisible, setGenderVisible] = useState(true);
@@ -27,8 +34,8 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
 
-  const activeStep = STEPS[stepIndex];
-  const progress = useMemo(() => ((stepIndex + 1) / STEPS.length) * 100, [stepIndex]);
+  const activeStep = steps[stepIndex];
+  const progress = useMemo(() => ((stepIndex + 1) / steps.length) * 100, [stepIndex, steps.length]);
 
   const validateCurrentStep = () => {
     if (activeStep === 'username') {
@@ -67,7 +74,7 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
 
   const handleNext = () => {
     if (!validateCurrentStep()) return;
-    setStepIndex((prev) => Math.min(prev + 1, STEPS.length - 1));
+    setStepIndex((prev) => Math.min(prev + 1, steps.length - 1));
     setInfo('');
   };
 
@@ -156,7 +163,7 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
     <div className="profile-form-container">
       <div className="profile-form-card onboarding-card">
         <h2>Complete onboarding</h2>
-        <p className="muted onboarding-inline-note">Step {stepIndex + 1} of {STEPS.length}</p>
+        <p className="muted onboarding-inline-note">Step {stepIndex + 1} of {steps.length}</p>
         <div className="timer-bar onboarding-progress">
           <span style={{ width: `${progress}%` }} />
         </div>
@@ -263,7 +270,7 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
           >
             Back
           </button>
-          {stepIndex < STEPS.length - 1 ? (
+          {stepIndex < steps.length - 1 ? (
             <button
               type="button"
               className="btn-solid"
