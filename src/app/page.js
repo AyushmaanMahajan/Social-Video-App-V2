@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, useMotionValue, useSpring } from "framer-motion"
+import { motionEase } from "@/lib/motion"
 
 const steps = [
   {
@@ -38,7 +39,7 @@ function FadeUp({ children, delay = 0 }) {
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.15 }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay }}
+      transition={{ duration: 0.8, ease: motionEase, delay }}
     >
       {children}
     </motion.div>
@@ -47,14 +48,7 @@ function FadeUp({ children, delay = 0 }) {
 
 function Orb() {
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "320px",
-        height: "320px",
-        margin: "0 auto",
-      }}
-    >
+    <div className="landing-orb">
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
@@ -78,7 +72,7 @@ function Orb() {
             "radial-gradient(circle, rgba(147,210,255,0.25) 0%, rgba(147,210,255,0.04) 60%, transparent 100%)",
         }}
         animate={{ scale: [1, 1.25, 1], opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 3, repeat: Infinity }}
+        transition={{ duration: 3, repeat: Infinity, ease: motionEase }}
       />
     </div>
   )
@@ -90,7 +84,6 @@ export default function Home() {
 
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
-
   const springX = useSpring(mouseX, { stiffness: 40, damping: 20 })
   const springY = useSpring(mouseY, { stiffness: 40, damping: 20 })
 
@@ -99,9 +92,10 @@ export default function Home() {
       mouseX.set((e.clientX / window.innerWidth - 0.5) * 30)
       mouseY.set((e.clientY / window.innerHeight - 0.5) * 30)
     }
+
     window.addEventListener("mousemove", move)
     return () => window.removeEventListener("mousemove", move)
-  }, [])
+  }, [mouseX, mouseY])
 
   useEffect(() => {
     async function checkAuth() {
@@ -117,333 +111,153 @@ export default function Home() {
     }
 
     checkAuth()
-  }, [])
+  }, [router])
 
   if (loading) return null
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:wght@300;600&family=DM+Sans:wght@300;400;500&display=swap');
+    <main className="landing-home">
+      <nav className="landing-nav">
+        <div className="display heading-md landing-brand">ENCOUNTER</div>
 
-        :root{
-          --void:#03040A;
-          --deep:#070A12;
-          --surface:#0C1018;
-          --blue:#93D2FF;
-          --border:rgba(147,210,255,0.09);
-          --muted:rgba(240,244,255,0.4);
-          --white:#F0F4FF;
-        }
-
-        body{
-          font-family:'DM Sans',sans-serif;
-          background:var(--void);
-          color:var(--white);
-          overflow-x:hidden;
-        }
-
-        .btn-primary{
-          font-family:'Bebas Neue';
-          letter-spacing:0.14em;
-          background:var(--blue);
-          color:black;
-          padding:0 42px;
-          height:54px;
-          border:none;
-          cursor:pointer;
-        }
-
-        .btn-ghost{
-          font-family:'Bebas Neue';
-          letter-spacing:0.14em;
-          background:transparent;
-          border:1px solid var(--border);
-          color:var(--blue);
-          padding:0 36px;
-          height:54px;
-        }
-
-        .step-card{
-          background:var(--surface);
-          border:1px solid var(--border);
-          padding:48px 36px;
-          min-height:260px;
-        }
-      `}</style>
-
-      <main style={{ minHeight: "100vh" }}>
-
-        {/* NAV */}
-        <nav
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            padding: "22px 56px",
-            display: "flex",
-            justifyContent: "space-between",
-            backdropFilter: "blur(18px)",
-            borderBottom: "1px solid var(--border)",
-            background: "rgba(3,4,10,0.8)",
-            zIndex: 100,
-          }}
-        >
-          <div style={{ fontFamily: "Bebas Neue", letterSpacing: "0.2em" }}>
-            ENCOUNTER
-          </div>
-
-          <div style={{ display: "flex", gap: "30px", alignItems: "center" }}>
-            <a href="#how">How it works</a>
-
-            <motion.button
-              className="btn-ghost"
-              whileHover={{ scale: 1.02 }}
-              onClick={() => router.push("/encounter?auth=login")}
-            >
-              SIGN IN
-            </motion.button>
-          </div>
-        </nav>
-
-        {/* HERO */}
-        <section
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            padding: "0 56px",
-          }}
-        >
-          <div
-            style={{
-              maxWidth: "1200px",
-              margin: "0 auto",
-              width: "100%",
-              display: "grid",
-              gridTemplateColumns: "1.1fr 0.9fr",
-              gap: "80px",
-              alignItems: "center",
-              paddingTop: "100px",
-            }}
+        <div className="landing-nav-links">
+          <a href="#how">How it works</a>
+          <motion.button
+            className="btn btn-ghost"
+            whileHover={{ scale: 1.02 }}
+            onClick={() => router.push("/encounter?auth=login")}
+            transition={{ ease: motionEase }}
           >
-            <FadeUp>
-              <h1
-                style={{
-                  fontFamily: "Bebas Neue",
-                  fontSize: "clamp(70px,8vw,110px)",
-                  lineHeight: 0.95,
-                  letterSpacing: "0.05em",
-                }}
-              >
-                TALK TO
-                <br />
-                SOMEONE
-                <br />
-                <span style={{ color: "var(--blue)" }}>RIGHT NOW</span>
-              </h1>
+            SIGN IN
+          </motion.button>
+        </div>
+      </nav>
 
-              <p
-                style={{
-                  marginTop: "28px",
-                  maxWidth: "420px",
-                  lineHeight: 1.8,
-                  color: "var(--muted)",
-                }}
-              >
-                A space designed for spontaneous conversations. Drop in,
-                meet someone new, talk for a moment, and see where it goes.
-                No endless feeds. Just people.
-              </p>
-
-              <div style={{ display: "flex", gap: "14px", marginTop: "40px" }}>
-                <motion.button
-                  className="btn-primary"
-                  whileHover={{ scale: 1.03 }}
-                  onClick={() => router.push("/encounter?auth=signup")}
-                >
-                  START TALKING
-                </motion.button>
-
-                <motion.button
-                  className="btn-ghost"
-                  whileHover={{ scale: 1.03 }}
-                  onClick={() => router.push("/encounter?auth=login")}
-                >
-                  SIGN IN
-                </motion.button>
-              </div>
-            </FadeUp>
-
-            <FadeUp delay={0.2}>
-              <motion.div style={{ x: springX, y: springY }}>
-                <Orb />
-              </motion.div>
-            </FadeUp>
-          </div>
-        </section>
-
-        {/* HOW IT WORKS */}
-        <section
-          id="how"
-          style={{
-            padding: "120px 56px",
-            maxWidth: "1180px",
-            margin: "0 auto",
-          }}
-        >
+      <section className="section landing-hero">
+        <div className="container landing-hero-grid">
           <FadeUp>
-            <h2
-              style={{
-                fontFamily: "Bebas Neue",
-                fontSize: "clamp(50px,5vw,70px)",
-                marginBottom: "60px",
-              }}
-            >
-              HOW IT WORKS
-            </h2>
+            <h1 className="display heading-xl">
+              TALK TO
+              <br />
+              SOMEONE
+              <br />
+              <span className="text-accent">RIGHT NOW</span>
+            </h1>
+
+            <p className="landing-copy text-muted">
+              A space designed for spontaneous conversations. Drop in, meet
+              someone new, talk for a moment, and see where it goes. No endless
+              feeds. Just people.
+            </p>
+
+            <div className="landing-hero-actions">
+              <motion.button
+                className="btn btn-primary"
+                whileHover={{ scale: 1.03 }}
+                onClick={() => router.push("/encounter?auth=signup")}
+                transition={{ ease: motionEase }}
+              >
+                START TALKING
+              </motion.button>
+
+              <motion.button
+                className="btn btn-ghost"
+                whileHover={{ scale: 1.03 }}
+                onClick={() => router.push("/encounter?auth=login")}
+                transition={{ ease: motionEase }}
+              >
+                SIGN IN
+              </motion.button>
+            </div>
           </FadeUp>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3,1fr)",
-              gap: "1px",
-              background: "var(--border)",
-            }}
-          >
+          <FadeUp delay={0.2}>
+            <motion.div style={{ x: springX, y: springY }}>
+              <Orb />
+            </motion.div>
+          </FadeUp>
+        </div>
+      </section>
+
+      <section id="how" className="section">
+        <div className="container">
+          <FadeUp>
+            <div className="accent-line" />
+            <h2 className="display heading-lg landing-how-title">HOW IT WORKS</h2>
+          </FadeUp>
+
+          <div className="landing-steps-grid">
             {steps.map((step, i) => (
               <FadeUp key={step.number} delay={i * 0.1}>
-                <div className="step-card">
-                  <div
-                    style={{
-                      fontFamily: "Bebas Neue",
-                      fontSize: "64px",
-                      color: "rgba(147,210,255,0.08)",
-                    }}
-                  >
-                    {step.number}
-                  </div>
-
-                  <h3 style={{ marginTop: "10px" }}>{step.title}</h3>
-
-                  <p
-                    style={{
-                      marginTop: "10px",
-                      color: "var(--muted)",
-                      lineHeight: 1.6,
-                    }}
-                  >
+                <article className="card landing-step-card">
+                  <div className="display landing-step-number">{step.number}</div>
+                  <h3 className="heading-md landing-step-title">{step.title}</h3>
+                  <p className="landing-step-description text-muted">
                     {step.description}
                   </p>
-                </div>
+                </article>
               </FadeUp>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* SIGNALS */}
-        <section
-          style={{
-            padding: "120px 56px",
-            background: "var(--deep)",
-            borderTop: "1px solid var(--border)",
-          }}
-        >
-          <div
-            style={{
-              maxWidth: "1100px",
-              margin: "0 auto",
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "80px",
-            }}
-          >
-            <FadeUp>
-              <h2
-                style={{
-                  fontFamily: "Bebas Neue",
-                  fontSize: "clamp(42px,4vw,60px)",
-                }}
-              >
-                BUILT FOR
-                <br />
-                REAL CONVERSATIONS
-              </h2>
-
-              <p style={{ marginTop: "20px", color: "var(--muted)" }}>
-                Simple controls and lightweight moderation keep interactions
-                comfortable without getting in the way of the conversation.
-              </p>
-            </FadeUp>
-
-            <FadeUp delay={0.2}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                {signals.map((s) => (
-                  <div
-                    key={s}
-                    style={{
-                      padding: "16px 20px",
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                    }}
-                  >
-                    {s}
-                  </div>
-                ))}
-              </div>
-            </FadeUp>
-          </div>
-        </section>
-
-        {/* CTA */}
-        <section
-          style={{
-            padding: "140px 56px",
-            textAlign: "center",
-          }}
-        >
+      <section className="section landing-signals-section">
+        <div className="container landing-signals-grid">
           <FadeUp>
-            <h2
-              style={{
-                fontFamily: "Bebas Neue",
-                fontSize: "clamp(60px,7vw,90px)",
-              }}
-            >
+            <div className="accent-line" />
+            <h2 className="display heading-lg">
+              BUILT FOR
+              <br />
+              REAL CONVERSATIONS
+            </h2>
+
+            <p className="landing-signals-copy text-muted">
+              Simple controls and lightweight moderation keep interactions
+              comfortable without getting in the way of the conversation.
+            </p>
+          </FadeUp>
+
+          <FadeUp delay={0.2}>
+            <div className="landing-signals-list">
+              {signals.map((signal) => (
+                <div key={signal} className="surface landing-signal-item">
+                  {signal}
+                </div>
+              ))}
+            </div>
+          </FadeUp>
+        </div>
+      </section>
+
+      <section className="section landing-cta">
+        <div className="container">
+          <FadeUp>
+            <h2 className="display heading-xl">
               JOIN THE
               <br />
               CONVERSATION
             </h2>
 
-            <p style={{ marginTop: "24px", color: "var(--muted)" }}>
+            <p className="landing-cta-copy text-muted">
               It takes less than a minute to start.
             </p>
 
             <motion.button
-              className="btn-primary"
-              style={{ marginTop: "40px", fontSize: "20px", height: "58px" }}
+              className="btn btn-primary landing-cta-btn"
               whileHover={{ scale: 1.05 }}
               onClick={() => router.push("/encounter?auth=signup")}
+              transition={{ ease: motionEase }}
             >
               START NOW
             </motion.button>
           </FadeUp>
-        </section>
+        </div>
+      </section>
 
-        <footer
-          style={{
-            borderTop: "1px solid var(--border)",
-            padding: "26px 56px",
-            background: "var(--deep)",
-            textAlign: "center",
-            fontSize: "12px",
-            color: "var(--muted)",
-          }}
-        >
-          © {new Date().getFullYear()} Encounter
-        </footer>
-      </main>
-    </>
+      <footer className="landing-footer text-muted">
+        (c) {new Date().getFullYear()} Encounter
+      </footer>
+    </main>
   )
 }
