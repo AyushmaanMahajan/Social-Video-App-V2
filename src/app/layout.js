@@ -1,4 +1,10 @@
 import './globals.css';
+import { IBM_Plex_Sans } from "next/font/google";
+
+const ibmPlexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+});
 
 export const metadata = {
   title: 'Serendipity Stream',
@@ -16,7 +22,7 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
       </head>
-      <body>
+      <body className={ibmPlexSans.className}>
         <div className="ambient-bg" aria-hidden="true" />
         {children}
       </body>

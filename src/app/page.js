@@ -8,29 +8,29 @@ import { motionEase } from "@/lib/motion"
 const steps = [
   {
     number: "01",
-    title: "Enter the Room",
+    title: "Introduce Yourself",
     description:
-      "Join a live pool of people who are ready to talk right now.",
+      "Create a simple profile so others know who’s joining the conversation.",
   },
   {
     number: "02",
-    title: "30 Second Intro",
+    title: "Connect With People You Like",
     description:
-      "A short introduction window lets both people get a quick feel for the interaction.",
+      "Look through profiles and choose someone who seems interesting.",
   },
   {
     number: "03",
-    title: "Continue or Move On",
+    title: "Have a Real Conversation",
     description:
-      "If both people want to keep talking, the conversation continues. Otherwise you move on.",
+      "Start a video chat and enjoy the moment.",
   },
 ]
 
 const signals = [
-  "Real-time moderation",
-  "Easy in-call reporting",
   "Quick leave controls",
-  "Identity signal checks",
+  "Lightweight moderation",
+  "In-call reporting tools",
+  "Respectful community guidelines",
 ]
 
 function FadeUp({ children, delay = 0 }) {
@@ -137,17 +137,17 @@ export default function Home() {
         <div className="container landing-hero-grid">
           <FadeUp>
             <h1 className="display heading-xl">
-              TALK TO
+              STEP IN
               <br />
-              SOMEONE
+              SAY HELLO
               <br />
-              <span className="text-accent">RIGHT NOW</span>
+              <span className="text-accent">SEE WHERE IT GOES</span>
             </h1>
 
             <p className="landing-copy text-muted">
-              A space designed for spontaneous conversations. Drop in, meet
-              someone new, talk for a moment, and see where it goes. No endless
-              feeds. Just people.
+              A place for spontaneous conversations. Drop in, meet someone new,
+              talk for a minute, and move on whenever you want. No endless feeds.
+              No pressure. Just people who mutually want to connect.
             </p>
 
             <div className="landing-hero-actions">
@@ -183,7 +183,9 @@ export default function Home() {
         <div className="container">
           <FadeUp>
             <div className="accent-line" />
-            <h2 className="display heading-lg landing-how-title">HOW IT WORKS</h2>
+            <h2 className="display heading-lg landing-how-title">
+              HOW IT WORKS
+            </h2>
           </FadeUp>
 
           <div className="landing-steps-grid">
@@ -191,7 +193,9 @@ export default function Home() {
               <FadeUp key={step.number} delay={i * 0.1}>
                 <article className="card landing-step-card">
                   <div className="display landing-step-number">{step.number}</div>
-                  <h3 className="heading-md landing-step-title">{step.title}</h3>
+                  <h3 className="heading-md landing-step-title">
+                    {step.title}
+                  </h3>
                   <p className="landing-step-description text-muted">
                     {step.description}
                   </p>
@@ -207,14 +211,15 @@ export default function Home() {
           <FadeUp>
             <div className="accent-line" />
             <h2 className="display heading-lg">
-              BUILT FOR
+              A BETTER
               <br />
-              REAL CONVERSATIONS
+              WAY TO SOCIALIZE
             </h2>
 
             <p className="landing-signals-copy text-muted">
-              Simple controls and lightweight moderation keep interactions
-              comfortable without getting in the way of the conversation.
+              Designed to keep conversations easy and comfortable. Simple
+              controls and thoughtful moderation help people interact without
+              the noise of typical social platforms.
             </p>
           </FadeUp>
 
@@ -234,13 +239,13 @@ export default function Home() {
         <div className="container">
           <FadeUp>
             <h2 className="display heading-xl">
-              JOIN THE
+              READY TO
               <br />
-              CONVERSATION
+              STEP IN?
             </h2>
 
             <p className="landing-cta-copy text-muted">
-              It takes less than a minute to start.
+              Join the conversation and see who you meet.
             </p>
 
             <motion.button
@@ -249,14 +254,14 @@ export default function Home() {
               onClick={() => router.push("/encounter?auth=signup")}
               transition={{ ease: motionEase }}
             >
-              START NOW
+              START TALKING
             </motion.button>
           </FadeUp>
         </div>
       </section>
 
       <footer className="landing-footer text-muted">
-        (c) {new Date().getFullYear()} Encounter
+        © {new Date().getFullYear()} Encounter
       </footer>
     </main>
   )
