@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Community Guidelines - Serendipity Stream',
+  title: 'Community Guidelines - CNXR',
 };
 
 export default function CommunityGuidelinesPage() {
@@ -9,20 +9,20 @@ export default function CommunityGuidelinesPage() {
     <main className="legal-page">
       <div className="legal-shell">
         <header className="legal-header">
-          <p className="eyebrow">Serendipity Stream</p>
+          <p className="eyebrow">CNXR</p>
           <h1>Community Guidelines</h1>
           <p className="legal-meta">Last Updated: March 2026</p>
-          <p className="legal-meta">Applies To: All users of Serendipity Stream (Web and Mobile)</p>
+          <p className="legal-meta">Applies To: All users of CNXR (Web and Mobile)</p>
         </header>
 
         <section className="legal-section">
           <p>
-            These Community Guidelines are designed to ensure Serendipity Stream remains a safe, respectful, lawful,
+            These Community Guidelines are designed to ensure CNXR remains a safe, respectful, lawful,
             and inclusive platform for all users. They apply to all interactions including profiles, video encounters,
             text messaging, and any media shared on the platform.
           </p>
           <p>
-            By using Serendipity Stream, you agree to comply with these guidelines. Violation may result in warnings,
+            By using CNXR, you agree to comply with these guidelines. Violation may result in warnings,
             restrictions, suspension, or permanent account termination.
           </p>
         </section>
@@ -130,7 +130,7 @@ export default function CommunityGuidelinesPage() {
 
         <section className="legal-section">
           <h2>6. Prohibited Conduct</h2>
-          <p>You may not use Serendipity Stream to:</p>
+          <p>You may not use CNXR to:</p>
           <ul>
             <li>
               Share content that is unlawful, defamatory, invasive of privacy, or infringing intellectual property
@@ -212,7 +212,7 @@ export default function CommunityGuidelinesPage() {
 
         <section className="legal-section">
           <h2>9. Content Moderation</h2>
-          <p>Serendipity Stream may:</p>
+          <p>CNXR may:</p>
           <ul>
             <li>Review flagged content</li>
             <li>Use automated tools to detect violations</li>

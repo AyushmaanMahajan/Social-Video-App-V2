@@ -205,7 +205,10 @@ export default function AppClient() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Serendipity Stream</h1>
+        <div className="app-brand">
+          <img src="/cnxr-logo.svg" alt="" aria-hidden="true" className="app-brand-mark" />
+          <h1>CNXR</h1>
+        </div>
         {currentUser && currentUser.onboarding_completed && (
           <div className="header-actions">
             <nav className="nav nav-desktop" aria-label="Desktop navigation">

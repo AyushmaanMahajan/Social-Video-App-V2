@@ -39,7 +39,7 @@ async function sendVerificationEmail({ toEmail, toName, token }) {
     personalizations: [
       {
         to: [{ email: toEmail }],
-        subject: 'Verify your Serendipity Stream email',
+        subject: 'Verify your CNXR email',
       },
     ],
     from: { email: config.from },

@@ -7,8 +7,8 @@ const ibmPlexSans = IBM_Plex_Sans({
 });
 
 export const metadata = {
-  title: 'Serendipity Stream',
-  description: 'Social video app',
+  title: 'CNXR',
+  description: 'CNXR is a social video app for spontaneous conversations.',
 };
 
 export default function RootLayout({ children }) {

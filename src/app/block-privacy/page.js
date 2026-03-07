@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Block & Privacy Settings - Serendipity Stream',
+  title: 'Block & Privacy Settings - CNXR',
 };
 
 export default function BlockPrivacyPage() {
@@ -7,7 +7,7 @@ export default function BlockPrivacyPage() {
     <main className="legal-page">
       <div className="legal-shell">
         <header className="legal-header">
-          <p className="eyebrow">Serendipity Stream</p>
+          <p className="eyebrow">CNXR</p>
           <h1>Block &amp; Privacy Settings</h1>
           <p className="legal-meta">
             Your privacy and safety are fundamental. This page explains how you can control who interacts with you and
@@ -54,7 +54,7 @@ export default function BlockPrivacyPage() {
 
         <section className="legal-section">
           <h2>3. Chat Control (Mutual Consent Required)</h2>
-          <p>Messaging on Serendipity Stream is based on mutual opt-in.</p>
+          <p>Messaging on CNXR is based on mutual opt-in.</p>
           <p>Chat works only when:</p>
           <p>You enable chat for a user AND that user enables chat for you</p>
           <p>If either party disables chat:</p>

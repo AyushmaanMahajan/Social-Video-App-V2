@@ -250,7 +250,21 @@ body.dark-mode {
 }
 
 .landing-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
   letter-spacing: 0.2em;
+}
+
+.landing-brand-mark {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 18px rgba(116, 195, 255, 0.38));
+}
+
+.landing-brand-wordmark {
+  line-height: 1;
 }
 
 .landing-nav-links {
@@ -285,6 +299,14 @@ body.dark-mode {
   line-height: 1.8;
 }
 
+.landing-kicker {
+  margin-bottom: 18px;
+  color: var(--color-accent);
+  letter-spacing: 0.4em;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .landing-hero-actions {
   display: flex;
   gap: 14px;
@@ -292,11 +314,43 @@ body.dark-mode {
   flex-wrap: wrap;
 }
 
-.landing-orb {
+.landing-brand-visual {
   position: relative;
   width: 320px;
   height: 320px;
   margin: 0 auto;
+}
+
+.landing-brand-panel {
+  position: absolute;
+  inset: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 30px;
+  border: 1px solid rgba(147, 210, 255, 0.18);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(147, 210, 255, 0.22), transparent 42%),
+    linear-gradient(145deg, rgba(10, 15, 28, 0.96), rgba(4, 6, 14, 0.94));
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(216, 243, 255, 0.06);
+  overflow: hidden;
+}
+
+.landing-brand-glow {
+  position: absolute;
+  inset: 18%;
+  border-radius: 32px;
+  background: radial-gradient(circle, rgba(96, 178, 255, 0.22), transparent 72%);
+  filter: blur(28px);
+}
+
+.landing-brand-panel-mark {
+  position: relative;
+  width: 76%;
+  height: 76%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 24px rgba(116, 195, 255, 0.42));
 }
 
 .landing-how-title {
@@ -405,12 +459,26 @@ body.dark-mode {
   }
 
   .landing-brand {
+    gap: 10px;
+  }
+
+  .landing-brand-mark {
+    width: 34px;
+    height: 34px;
+  }
+
+  .landing-brand-wordmark {
     font-size: 26px;
   }
 
   .btn {
     height: 50px;
     padding: 0 24px;
+  }
+
+  .landing-brand-visual {
+    width: min(320px, 100%);
+    height: 320px;
   }
 
   .landing-steps-grid {
@@ -443,7 +511,21 @@ body.dark-mode {
   backdrop-filter: blur(10px);
 }
 
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.app-brand-mark {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 18px rgba(116, 195, 255, 0.28));
+}
+
 .app-header h1 {
+  margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
   color: var(--text);
@@ -2856,8 +2938,13 @@ body.dark-mode {
     padding: 1rem;
   }
 
+  .app-brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
   .app-header h1 {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
   }
 
   .header-actions {

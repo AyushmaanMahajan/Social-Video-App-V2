@@ -10,7 +10,7 @@ const steps = [
     number: "01",
     title: "Introduce Yourself",
     description:
-      "Create a simple profile so others know who’s joining the conversation.",
+      "Create a simple profile so others know who's joining the conversation.",
   },
   {
     number: "02",
@@ -46,16 +46,16 @@ function FadeUp({ children, delay = 0 }) {
   )
 }
 
-function Orb() {
+function BrandVisual() {
   return (
-    <div className="landing-orb">
+    <div className="landing-brand-visual">
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
           style={{
             position: "absolute",
-            inset: `${i * 26}px`,
-            borderRadius: "50%",
+            inset: `${i * 20}px`,
+            borderRadius: "32px",
             border: `1px solid rgba(147,210,255,${0.15 - i * 0.04})`,
           }}
           animate={{ rotate: i % 2 === 0 ? 360 : -360 }}
@@ -64,16 +64,13 @@ function Orb() {
       ))}
 
       <motion.div
-        style={{
-          position: "absolute",
-          inset: "80px",
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(147,210,255,0.25) 0%, rgba(147,210,255,0.04) 60%, transparent 100%)",
-        }}
-        animate={{ scale: [1, 1.25, 1], opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 3, repeat: Infinity, ease: motionEase }}
-      />
+        className="landing-brand-panel"
+        animate={{ y: [0, -12, 0], rotate: [-1, 1, -1] }}
+        transition={{ duration: 6, repeat: Infinity, ease: motionEase }}
+      >
+        <div className="landing-brand-glow" aria-hidden="true" />
+        <img src="/cnxr-logo.svg" alt="CNXR logo" className="landing-brand-panel-mark" />
+      </motion.div>
     </div>
   )
 }
@@ -118,7 +115,10 @@ export default function Home() {
   return (
     <main className="landing-home">
       <nav className="landing-nav">
-        <div className="display heading-md landing-brand">ENCOUNTER</div>
+        <div className="landing-brand" aria-label="CNXR">
+          <img src="/cnxr-logo.svg" alt="" aria-hidden="true" className="landing-brand-mark" />
+          <span className="display heading-md landing-brand-wordmark">CNXR</span>
+        </div>
 
         <div className="landing-nav-links">
           <a href="#how">How it works</a>
@@ -136,18 +136,19 @@ export default function Home() {
       <section className="section landing-hero">
         <div className="container landing-hero-grid">
           <FadeUp>
+            <p className="landing-kicker">CNXR</p>
             <h1 className="display heading-xl">
-              STEP IN
+              CNXR
               <br />
-              SAY HELLO
+              STEP IN
               <br />
               <span className="text-accent">SEE WHERE IT GOES</span>
             </h1>
 
             <p className="landing-copy text-muted">
-              A place for spontaneous conversations. Drop in, meet someone new,
-              talk for a minute, and move on whenever you want. No endless feeds.
-              No pressure. Just people who mutually want to connect.
+              CNXR is built for spontaneous conversations. Drop in, meet someone
+              new, talk for a minute, and move on whenever you want. No endless
+              feeds. No pressure. Just people who mutually want to connect.
             </p>
 
             <div className="landing-hero-actions">
@@ -173,7 +174,7 @@ export default function Home() {
 
           <FadeUp delay={0.2}>
             <motion.div style={{ x: springX, y: springY }}>
-              <Orb />
+              <BrandVisual />
             </motion.div>
           </FadeUp>
         </div>
@@ -261,7 +262,7 @@ export default function Home() {
       </section>
 
       <footer className="landing-footer text-muted">
-        © {new Date().getFullYear()} Encounter
+        &copy; {new Date().getFullYear()} CNXR
       </footer>
     </main>
   )

@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Report a User - Serendipity Stream',
+  title: 'Report a User - CNXR',
 };
 
 export default function ReportUserPage() {
@@ -7,7 +7,7 @@ export default function ReportUserPage() {
     <main className="legal-page">
       <div className="legal-shell">
         <header className="legal-header">
-          <p className="eyebrow">Serendipity Stream</p>
+          <p className="eyebrow">CNXR</p>
           <h1>Report a User</h1>
           <p className="legal-meta">Your safety matters.</p>
           <p className="legal-meta">

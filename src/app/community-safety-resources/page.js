@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Community Safety Resources - Serendipity Stream',
+  title: 'Community Safety Resources - CNXR',
 };
 
 export default function CommunitySafetyResourcesPage() {
@@ -9,7 +9,7 @@ export default function CommunitySafetyResourcesPage() {
     <main className="legal-page">
       <div className="legal-shell">
         <header className="legal-header">
-          <p className="eyebrow">Serendipity Stream</p>
+          <p className="eyebrow">CNXR</p>
           <h1>Community Safety Resources</h1>
         </header>
 
@@ -56,7 +56,7 @@ export default function CommunitySafetyResourcesPage() {
 
         <section className="legal-section">
           <h2>3. Sexual Exploitation and Child Safety</h2>
-          <p>Serendipity Stream has zero tolerance for:</p>
+          <p>CNXR has zero tolerance for:</p>
           <ul>
             <li>Grooming</li>
             <li>Exploitation</li>
@@ -118,7 +118,7 @@ export default function CommunitySafetyResourcesPage() {
             <li>Seek protection under the Information Technology Act, 2000.</li>
             <li>Request removal of unlawful content.</li>
           </ul>
-          <p>Serendipity Stream may cooperate with lawful requests from authorities where required.</p>
+          <p>CNXR may cooperate with lawful requests from authorities where required.</p>
         </section>
 
         <section className="legal-section">

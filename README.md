@@ -1,4 +1,4 @@
-# Serendipity Stream
+# CNXR
 
 A single Next.js application that combines the previous React (Vite) frontend and Express backend into one codebase.
 The primary user flow lives at `/encounter`, a time-bound, real-time connection surface that defaults after login.

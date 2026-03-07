@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" fill="none">
+  <defs>
+    <linearGradient id="cnxr-gradient" x1="30" y1="26" x2="290" y2="294" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d8f3ff" />
+      <stop offset="0.46" stop-color="#91d8ff" />
+      <stop offset="1" stop-color="#5a96ff" />
+    </linearGradient>
+  </defs>
+  <g
+    stroke="url(#cnxr-gradient)"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="10"
+  >
+    <rect x="18" y="18" width="284" height="284" rx="20" />
+    <path d="M44 44 84 84" />
+    <path d="M276 44 236 84" />
+    <path d="M44 158 92 204 44 248" />
+    <path d="M276 158 228 204 276 248" />
+    <path d="M66 126C92 58 228 58 254 126" />
+    <path d="M56 164H264" />
+    <path d="M92 196 162 270" />
+    <path d="M228 196 162 270" />
+    <path d="M122 194 208 280" />
+    <path d="M202 194 116 280" />
+  </g>
+</svg>
