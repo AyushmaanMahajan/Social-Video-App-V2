@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { completeOnboarding } from '@/lib/api';
+import { detectBrowserLocation } from '@/lib/browserLocation';
 
 // ─── Step config ────────────────────────────────────────────────────────────
 const DEFAULT_STEPS        = ['username', 'birthdate', 'gender', 'safety', 'photos', 'description', 'prompts'];
@@ -308,17 +309,39 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
   const [birthdate,      setBirthdate]      = useState('');
   const [gender,         setGender]         = useState('female');
   const [genderVisible,  setGenderVisible]  = useState(true);
+  const [location,       setLocation]       = useState('');
+  const [showLocation,   setShowLocation]   = useState(true);
   const [safetyConfirmed,setSafetyConfirmed]= useState(false);
   const [photos,         setPhotos]         = useState([]);
   const [description,    setDescription]    = useState('');
   const [prompts,        setPrompts]        = useState([{ question: PROMPT_OPTIONS[0], answer: '' }]);
   const [uploading,      setUploading]      = useState(false);
   const [submitting,     setSubmitting]     = useState(false);
+  const [locationStatus, setLocationStatus] = useState('idle');
+  const [locationError,  setLocationError]  = useState('');
   const [error,          setError]          = useState('');
   const [info,           setInfo]           = useState('');
 
   const activeStep = steps[stepIndex];
   const progress   = ((stepIndex + 1) / steps.length) * 100;
+
+  const handleDetectLocation = useCallback(async () => {
+    setLocationStatus('loading');
+    setLocationError('');
+
+    try {
+      const detectedLocation = await detectBrowserLocation();
+      setLocation(detectedLocation);
+      setLocationStatus('ready');
+    } catch (detectError) {
+      setLocationStatus('error');
+      setLocationError(detectError?.message || 'Could not detect location from your browser.');
+    }
+  }, []);
+
+  useEffect(() => {
+    handleDetectLocation();
+  }, [handleDetectLocation]);
 
   // ── Gate logic ──────────────────────────────────────────────────────────────
   const stepCanProceed = {
@@ -386,6 +409,8 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
         birthdate,
         gender,
         genderVisible,
+        location,
+        showLocation,
         safetyAcknowledged: safetyConfirmed,
         profilePhotoUrl:    photoUrls[0] || undefined,
         additionalPhotos:   photoUrls.slice(1),
@@ -484,6 +509,32 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
                 <span>Show gender on profile</span>
                 <input type="checkbox" className="toggle-checkbox" checked={genderVisible}
                   onChange={e => setGenderVisible(e.target.checked)} />
+              </label>
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label>Location</label>
+                <input
+                  type="text"
+                  value={location}
+                  readOnly
+                  placeholder={locationStatus === 'loading' ? 'Detecting your location...' : 'Using your browser location'}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={handleDetectLocation}
+                    disabled={locationStatus === 'loading'}
+                  >
+                    {locationStatus === 'loading' ? 'Detecting...' : 'Use current location'}
+                  </button>
+                  {location && <span className="muted">Auto-filled from browser</span>}
+                </div>
+                {locationError && <p className="muted onboarding-inline-note">{locationError}</p>}
+              </div>
+              <label className="toggle-item onboarding-toggle">
+                <span>Show location on profile</span>
+                <input type="checkbox" className="toggle-checkbox" checked={showLocation}
+                  onChange={e => setShowLocation(e.target.checked)} />
               </label>
               <p className="muted onboarding-inline-note">Gender cannot be changed later.</p>
             </div>

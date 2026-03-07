@@ -46,6 +46,9 @@ export async function POST(request) {
 
     const genderVisible =
       typeof body?.genderVisible === 'boolean' ? body.genderVisible : true;
+    const showLocation =
+      typeof body?.showLocation === 'boolean' ? body.showLocation : true;
+    const location = String(body?.location || '').trim().slice(0, 100);
     const safetyAcknowledged = Boolean(body?.safetyAcknowledged);
     if (!safetyAcknowledged) {
       return Response.json(
@@ -121,9 +124,11 @@ export async function POST(request) {
           age = $3,
           gender = $4,
           gender_visible = $5,
+          location = NULLIF($6, ''),
+          show_location = $7,
           safety_acknowledged = TRUE,
           onboarding_completed = TRUE
-      WHERE id = $6
+      WHERE id = $8
       RETURNING id,
                 email,
                 username,
@@ -132,6 +137,8 @@ export async function POST(request) {
                 COALESCE(EXTRACT(YEAR FROM age(CURRENT_DATE, birthdate))::int, age) AS age,
                 gender,
                 gender_visible,
+                location,
+                show_location,
                 onboarding_completed,
                 safety_acknowledged,
                 created_at
@@ -142,6 +149,8 @@ export async function POST(request) {
         birthdateCheck.age,
         genderCheck.gender,
         genderVisible,
+        location,
+        showLocation,
         auth.userId,
       ]
     );

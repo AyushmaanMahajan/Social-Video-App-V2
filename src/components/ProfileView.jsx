@@ -16,9 +16,9 @@ function ProfileView({ user, onEdit }) {
       <div className="profile-content-scroll">
         <div className="profile-info-section">
           <h1 className="profile-name">
-            {user.name}{user.age && user.showAge !== false ? `, ${user.age}` : ''}
+            {user.name}{user.age ? `, ${user.age}` : ''}
           </h1>
-          {user.location && user.showLocation !== false && (
+          {user.location && (user.show_location ?? user.showLocation) !== false && (
             <p className="profile-location">{user.location}</p>
           )}
           {user.gender && (user.gender_visible ?? user.genderVisible) !== false && (

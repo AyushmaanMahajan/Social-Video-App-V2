@@ -63,6 +63,7 @@ export async function GET(request) {
              COALESCE(u.username, u.name, 'User') AS name,
              COALESCE(EXTRACT(YEAR FROM age(CURRENT_DATE, u.birthdate))::int, u.age) AS age,
              u.location,
+             u.show_location,
              u.about,
              u.currently_into,
              u.ask_me_about,
@@ -123,7 +124,11 @@ export async function GET(request) {
     if (!user.gender_visible) {
       user.gender = null;
     }
+    if (user.show_location === false) {
+      user.location = null;
+    }
     delete user.gender_visible;
+    delete user.show_location;
 
     const [photos, prompts, interests] = await Promise.all([
       pool.query('SELECT url FROM photos WHERE user_id = $1 ORDER BY order_index', [user.id]),

@@ -47,7 +47,7 @@ export async function GET(request) {
         SELECT id,
                COALESCE(username, name, 'User') AS name,
                COALESCE(EXTRACT(YEAR FROM age(CURRENT_DATE, birthdate))::int, age) AS age,
-               location
+               CASE WHEN COALESCE(show_location, TRUE) THEN location ELSE NULL END AS location
         FROM users
         WHERE id = ANY($1)
         ${searchClause}

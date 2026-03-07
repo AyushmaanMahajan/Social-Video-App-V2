@@ -8,7 +8,6 @@ import { detectBrowserLocation } from '@/lib/browserLocation';
 function EditProfileModal({ user, onClose, onSave }) {
   const [formData, setFormData] = useState({
     name: user.name || '',
-    age: user.age || '',
     location: user.location || '',
     gender: user.gender || '',
     photos: user.photos || [],
@@ -18,7 +17,6 @@ function EditProfileModal({ user, onClose, onSave }) {
     currentlyInto: user.currently_into || user.currentlyInto || '',
     askMeAbout: user.ask_me_about || user.askMeAbout || '',
     accentTheme: user.accent_theme || user.accentTheme || 'cyan',
-    showAge: (user.show_age ?? user.showAge) !== false,
     showLocation: (user.show_location ?? user.showLocation) !== false,
     showActiveStatus: (user.show_active_status ?? user.showActiveStatus) !== false,
     genderVisible: (user.gender_visible ?? user.genderVisible) !== false
@@ -112,7 +110,7 @@ function EditProfileModal({ user, onClose, onSave }) {
               </div>
               <div className="form-field">
                 <label>Age</label>
-                <input type="text" value={formData.age || ''} disabled />
+                <input type="text" value={user.age || ''} disabled />
               </div>
               <div className="form-field full-width">
                 <label>Location</label>
@@ -212,15 +210,6 @@ function EditProfileModal({ user, onClose, onSave }) {
           <div className="edit-section">
             <h3 className="section-label">Visibility</h3>
             <div className="toggle-list">
-              <label className="toggle-item">
-                <span>Show age</span>
-                <input
-                  type="checkbox"
-                  checked={formData.showAge}
-                  onChange={(e) => handleChange('showAge', e.target.checked)}
-                  className="toggle-checkbox"
-                />
-              </label>
               <label className="toggle-item">
                 <span>Show location</span>
                 <input

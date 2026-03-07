@@ -34,8 +34,8 @@ function UserProfile({ currentUser, entryMode = null, onEntryModeConsumed }) {
 
   const handleSaveProfile = async (updatedData) => {
     try {
-      await updateUser(updatedData);
-      setUser({ ...user, ...updatedData });
+      const result = await updateUser(updatedData);
+      setUser((previous) => ({ ...previous, ...(result?.user || updatedData) }));
       setMode('view');
     } catch (error) {
       console.error('Failed to update profile:', error);

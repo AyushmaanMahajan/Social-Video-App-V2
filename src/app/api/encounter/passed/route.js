@@ -13,7 +13,7 @@ export async function GET(request) {
         u.id,
         COALESCE(u.username, u.name, 'User') AS name,
         COALESCE(EXTRACT(YEAR FROM age(CURRENT_DATE, u.birthdate))::int, u.age) AS age,
-        u.location,
+        CASE WHEN COALESCE(u.show_location, TRUE) THEN u.location ELSE NULL END AS location,
         s.skipped_at AS "skippedAt",
         (
           SELECT p.url

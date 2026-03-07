@@ -152,13 +152,12 @@ export async function PUT(request) {
       }
     }
 
-    const location = body.location ?? null;
+    const locationInput = typeof body.location === 'string' ? body.location.trim().slice(0, 100) : '';
+    const location = locationInput || null;
     const about = body.about ?? null;
     const currently_into = (body.currently_into ?? body.currentlyInto) ?? null;
     const ask_me_about = (body.ask_me_about ?? body.askMeAbout) ?? null;
     const accent_theme = (body.accent_theme ?? body.accentTheme) ?? null;
-    const show_age_value = body.show_age ?? body.showAge;
-    const show_age = typeof show_age_value === 'boolean' ? show_age_value : null;
     const show_location_value = body.show_location ?? body.showLocation;
     const show_location = typeof show_location_value === 'boolean' ? show_location_value : null;
     const show_active_status_value = body.show_active_status ?? body.showActiveStatus;
@@ -180,11 +179,11 @@ export async function PUT(request) {
         currently_into = COALESCE($5, currently_into),
         ask_me_about = COALESCE($6, ask_me_about),
         accent_theme = COALESCE($7, accent_theme),
-        show_age = COALESCE($8, show_age),
-        show_location = COALESCE($9, show_location),
-        show_active_status = COALESCE($10, show_active_status),
-        gender_visible = COALESCE($11, gender_visible)
-      WHERE id = $12
+        show_age = TRUE,
+        show_location = COALESCE($8, show_location),
+        show_active_status = COALESCE($9, show_active_status),
+        gender_visible = COALESCE($10, gender_visible)
+      WHERE id = $11
       `,
       [
         nextUsername,
@@ -194,7 +193,6 @@ export async function PUT(request) {
         currently_into,
         ask_me_about,
         accent_theme,
-        show_age,
         show_location,
         show_active_status,
         gender_visible,

@@ -7,8 +7,8 @@ import { detectBrowserLocation } from '@/lib/browserLocation';
 function ProfileEdit({ user, onSave, onCancel }) {
   const [formData, setFormData] = useState({
     name: user.name || '',
-    age: user.age || '',
     location: user.location || '',
+    showLocation: (user.show_location ?? user.showLocation) !== false,
     photos: user.photos || [],
     about: user.about || '',
     prompts: user.prompts || [],
@@ -98,10 +98,9 @@ function ProfileEdit({ user, onSave, onCancel }) {
             <div className="form-field">
               <label>Age</label>
               <input
-                type="number"
-                value={formData.age}
-                onChange={(e) => handleChange('age', parseInt(e.target.value))}
-                min="18"
+                type="text"
+                value={user.age || ''}
+                disabled
               />
             </div>
           </div>
@@ -125,6 +124,15 @@ function ProfileEdit({ user, onSave, onCancel }) {
               {formData.location && <span className="muted">Auto-filled from browser</span>}
             </div>
             {locationError && <p className="muted" style={{ marginTop: 8 }}>{locationError}</p>}
+            <label className="toggle-item onboarding-toggle" style={{ marginTop: 10 }}>
+              <span>Show location on profile</span>
+              <input
+                type="checkbox"
+                className="toggle-checkbox"
+                checked={formData.showLocation}
+                onChange={(e) => handleChange('showLocation', e.target.checked)}
+              />
+            </label>
           </div>
         </div>
 

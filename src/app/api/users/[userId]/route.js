@@ -58,6 +58,9 @@ export async function GET(request, { params }) {
     if (Number(user.id) !== Number(viewerId) && !user.gender_visible) {
       user.gender = null;
     }
+    if (Number(user.id) !== Number(viewerId) && user.show_location === false) {
+      user.location = null;
+    }
 
     const photosResult = await pool.query('SELECT url FROM photos WHERE user_id = $1 ORDER BY order_index', [userId]);
     const promptsResult = await pool.query('SELECT question, answer FROM prompts WHERE user_id = $1 ORDER BY order_index', [userId]);

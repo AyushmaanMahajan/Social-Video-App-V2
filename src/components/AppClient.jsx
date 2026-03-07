@@ -133,9 +133,9 @@ export default function AppClient() {
   };
 
   const handleSaveProfile = async (updatedData) => {
-    await updateUser(updatedData);
+    const result = await updateUser(updatedData);
     setCurrentUser((previous) => {
-      const next = { ...previous, ...updatedData };
+      const next = { ...previous, ...(result?.user || updatedData) };
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(USER_CACHE_KEY, JSON.stringify(next));
       }
