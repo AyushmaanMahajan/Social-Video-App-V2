@@ -458,9 +458,28 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
           {activeStep === 'gender' && (
             <div className="form-group">
               <label>Gender</label>
-              <select value={gender} onChange={e => setGender(e.target.value)}>
-                {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              <div className="onboarding-gender-grid" role="radiogroup" aria-label="Select your gender">
+                {GENDER_OPTIONS.map((o) => {
+                  const selected = gender === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setGender(o.value)}
+                      className={`onboarding-gender-option${selected ? ' is-active' : ''}`}
+                    >
+                      <span>{o.label}</span>
+                      {selected && (
+                        <span className="onboarding-gender-check">
+                          <Icon name="check-circle" size={14} />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
               <label className="toggle-item onboarding-toggle">
                 <span>Show gender on profile</span>
                 <input type="checkbox" className="toggle-checkbox" checked={genderVisible}
@@ -609,6 +628,60 @@ const s = {
 
 const css = `
   .profile-form-card select option { background: #1a1a2e; color: #fff; }
+
+  .onboarding-gender-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .onboarding-gender-option {
+    border: 1.5px solid var(--border, rgba(255, 255, 255, 0.15));
+    background: var(--card-bg, rgba(255, 255, 255, 0.04));
+    color: var(--text);
+    border-radius: 12px;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .onboarding-gender-option:hover {
+    border-color: rgba(147, 210, 255, 0.55);
+    background: rgba(147, 210, 255, 0.08);
+  }
+
+  .onboarding-gender-option:focus-visible {
+    outline: none;
+    border-color: var(--accent, #93d2ff);
+    box-shadow: 0 0 0 3px rgba(147, 210, 255, 0.2);
+  }
+
+  .onboarding-gender-option.is-active {
+    border-color: var(--accent, #93d2ff);
+    background: rgba(147, 210, 255, 0.14);
+  }
+
+  .onboarding-gender-check {
+    color: var(--accent, #93d2ff);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  @media (max-width: 460px) {
+    .onboarding-gender-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 `;
 
 export default OnboardingFlow;
