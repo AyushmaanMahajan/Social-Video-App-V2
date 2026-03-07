@@ -1,8 +1,9 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import PhotoUploader from './PhotoUploader';
 import PromptEditor from './PromptEditor';
 import ThemeSelector from './ThemeSelector';
+import { detectBrowserLocation } from '@/lib/browserLocation';
 
 function EditProfileModal({ user, onClose, onSave }) {
   const [formData, setFormData] = useState({
@@ -25,6 +26,8 @@ function EditProfileModal({ user, onClose, onSave }) {
 
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [locationStatus, setLocationStatus] = useState(user.location ? 'ready' : 'idle');
+  const [locationError, setLocationError] = useState('');
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -35,6 +38,25 @@ function EditProfileModal({ user, onClose, onSave }) {
     const interestsArray = value.split(',').map(i => i.trim()).filter(i => i);
     setFormData(prev => ({ ...prev, interests: interestsArray }));
   };
+
+  const handleDetectLocation = useCallback(async () => {
+    setLocationStatus('loading');
+    setLocationError('');
+
+    try {
+      const location = await detectBrowserLocation();
+      setFormData((prev) => ({ ...prev, location }));
+      setLocationStatus('ready');
+    } catch (error) {
+      setLocationStatus('error');
+      setLocationError(error?.message || 'Could not detect location.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user.location) return;
+    handleDetectLocation();
+  }, [handleDetectLocation, user.location]);
 
   // Change handleSave:
     const handleSave = async () => {
@@ -97,9 +119,21 @@ function EditProfileModal({ user, onClose, onSave }) {
                 <input
                   type="text"
                   value={formData.location}
-                  onChange={(e) => handleChange('location', e.target.value)}
-                  placeholder="City, State"
+                  readOnly
+                  placeholder={locationStatus === 'loading' ? 'Detecting your location...' : 'Using your browser location'}
                 />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={handleDetectLocation}
+                    disabled={locationStatus === 'loading'}
+                  >
+                    {locationStatus === 'loading' ? 'Detecting...' : 'Use current location'}
+                  </button>
+                  {formData.location && <span className="muted">Auto-filled from browser</span>}
+                </div>
+                {locationError && <p className="muted" style={{ marginTop: 8 }}>{locationError}</p>}
               </div>
             </div>
           </div>
