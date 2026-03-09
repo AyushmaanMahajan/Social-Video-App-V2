@@ -206,7 +206,7 @@ export default function AppClient() {
     <div className="app">
       <header className="app-header">
         <div className="app-brand">
-          <img src="/cnxr-logo.svg" alt="" aria-hidden="true" className="app-brand-mark" />
+          <img src="/cnxr-logo.png" alt="" aria-hidden="true" className="app-brand-mark" />
           <h1>CNXR</h1>
         </div>
         {currentUser && currentUser.onboarding_completed && (

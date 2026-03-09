@@ -69,7 +69,7 @@ function BrandVisual() {
         transition={{ duration: 6, repeat: Infinity, ease: motionEase }}
       >
         <div className="landing-brand-glow" aria-hidden="true" />
-        <img src="/cnxr-logo.svg" alt="CNXR logo" className="landing-brand-panel-mark" />
+        <img src="/cnxr-logo.png" alt="CNXR logo" className="landing-brand-panel-mark" />
       </motion.div>
     </div>
   )
@@ -116,7 +116,7 @@ export default function Home() {
     <main className="landing-home">
       <nav className="landing-nav">
         <div className="landing-brand" aria-label="CNXR">
-          <img src="/cnxr-logo.svg" alt="" aria-hidden="true" className="landing-brand-mark" />
+          <img src="/cnxr-logo.png" alt="" aria-hidden="true" className="landing-brand-mark" />
           <span className="display heading-md landing-brand-wordmark">CNXR</span>
         </div>
 
