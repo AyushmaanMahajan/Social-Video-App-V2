@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import ProfileForm from './ProfileForm';
 import OnboardingFlow from './OnboardingFlow';
 import UserProfile from './UserProfile';
@@ -11,15 +11,18 @@ import Interactions from './Interactions';
 import { useVideoSocket } from '@/lib/useVideoSocket';
 import VideoChat from './VideoChat';
 import { deleteMyAccount, getMe, getToken, logoutSession, removeToken, updateUser } from '@/lib/api';
+import { useThemePreference } from '@/lib/useThemePreference';
+import { ChatIcon, CompassIcon, MoonIcon, SlidersIcon, SunIcon, UserIcon } from './UiIcons';
 
 const NAV_ITEMS = [
-  { id: 'encounter', label: 'Encounter' },
-  { id: 'interactions', label: 'Interactions' },
-  { id: 'profile', label: 'Profile' }
+  { id: 'encounter', label: 'Encounter', icon: CompassIcon },
+  { id: 'interactions', label: 'Interactions', icon: ChatIcon },
+  { id: 'profile', label: 'Profile', icon: UserIcon }
 ];
 const USER_CACHE_KEY = 'current_user';
 
 export default function AppClient() {
+  const { isDark, toggleTheme } = useThemePreference();
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [currentPage, setCurrentPage] = useState('encounter');
@@ -35,7 +38,6 @@ export default function AppClient() {
   const [authBootstrapping, setAuthBootstrapping] = useState(true);
 
   useEffect(() => {
-    document.body.classList.add('dark-mode');
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       const searchParams = new URLSearchParams(window.location.search);
@@ -185,45 +187,63 @@ export default function AppClient() {
   };
 
   const renderNavButtons = () => (
-    NAV_ITEMS.map((item) => (
-      <button
-        key={item.id}
-        className={currentPage === item.id ? 'nav-btn active' : 'nav-btn'}
-        onClick={() => {
-          setCurrentPage(item.id);
-          if (item.id === 'profile') {
-            setProfileEntryMode('view');
-          }
-        }}
-        aria-label={item.label}
-      >
-        <span className="nav-label">{item.label}</span>
-      </button>
-    ))
+    NAV_ITEMS.map((item) => {
+      const Icon = item.icon;
+
+      return (
+        <button
+          key={item.id}
+          className={currentPage === item.id ? 'nav-btn active' : 'nav-btn'}
+          onClick={() => {
+            setCurrentPage(item.id);
+            if (item.id === 'profile') {
+              setProfileEntryMode('view');
+            }
+          }}
+          aria-label={item.label}
+        >
+          <Icon className="nav-icon" />
+          <span className="nav-label">{item.label}</span>
+        </button>
+      );
+    })
   );
 
   return (
     <div className="app">
       <header className="app-header">
         <div className="app-brand">
-          <img src="/cnxr-logo.png" alt="" aria-hidden="true" className="app-brand-mark" />
+          <img src="/jellyfishLogo.png" alt="" aria-hidden="true" className="app-brand-mark" />
           <h1>CNXR</h1>
         </div>
-        {currentUser && currentUser.onboarding_completed && (
-          <div className="header-actions">
+        <div className="header-actions">
+          {currentUser && currentUser.onboarding_completed && (
             <nav className="nav nav-desktop" aria-label="Desktop navigation">
               {renderNavButtons()}
             </nav>
-            
+          )}
+
+          <button
+            type="button"
+            className="theme-toggle theme-toggle-compact"
+            onClick={toggleTheme}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark ? <SunIcon className="button-icon" /> : <MoonIcon className="button-icon" />}
+          </button>
+
+          {currentUser && currentUser.onboarding_completed && (
             <button
               className="settings-btn"
               onClick={() => setShowSettings(true)}
               title="Settings"
             >
-              Settings
+              <SlidersIcon className="button-icon" />
+              <span>Settings</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </header>
 
       <main className="app-main">
@@ -273,6 +293,16 @@ export default function AppClient() {
       {currentUser && currentUser.onboarding_completed && (
         <nav className="nav nav-mobile" aria-label="Mobile navigation">
           {renderNavButtons()}
+          <button
+            type="button"
+            className="nav-btn nav-theme-toggle"
+            onClick={toggleTheme}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark ? <SunIcon className="nav-icon" /> : <MoonIcon className="nav-icon" />}
+            <span className="nav-label">Theme</span>
+          </button>
         </nav>
       )}
 

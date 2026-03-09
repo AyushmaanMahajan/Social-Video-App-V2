@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, useMotionValue, useSpring } from "framer-motion"
 import { motionEase } from "@/lib/motion"
+import { useThemePreference } from "@/lib/useThemePreference"
+import { MoonIcon, SunIcon } from "@/components/UiIcons"
 
 const steps = [
   {
@@ -46,7 +48,7 @@ function FadeUp({ children, delay = 0 }) {
   )
 }
 
-function BrandVisual() {
+function BrandVisual({ isDark }) {
   return (
     <div className="landing-brand-visual">
       {[0, 1, 2].map((i) => (
@@ -56,7 +58,9 @@ function BrandVisual() {
             position: "absolute",
             inset: `${i * 20}px`,
             borderRadius: "32px",
-            border: `1px solid rgba(147,210,255,${0.15 - i * 0.04})`,
+            border: `1px solid ${isDark
+              ? `rgba(255,200,87,${0.16 - i * 0.04})`
+              : `rgba(255,140,66,${0.16 - i * 0.04})`}`,
           }}
           animate={{ rotate: i % 2 === 0 ? 360 : -360 }}
           transition={{ duration: 20 + i * 8, repeat: Infinity, ease: "linear" }}
@@ -69,7 +73,7 @@ function BrandVisual() {
         transition={{ duration: 6, repeat: Infinity, ease: motionEase }}
       >
         <div className="landing-brand-glow" aria-hidden="true" />
-        <img src="/cnxr-logo.png" alt="CNXR logo" className="landing-brand-panel-mark" />
+        <img src="/jellyfishLogo.png" alt="CNXR logo" className="landing-brand-panel-mark" />
       </motion.div>
     </div>
   )
@@ -77,6 +81,7 @@ function BrandVisual() {
 
 export default function Home() {
   const router = useRouter()
+  const { isDark, toggleTheme } = useThemePreference()
   const [loading, setLoading] = useState(true)
 
   const mouseX = useMotionValue(0)
@@ -116,12 +121,22 @@ export default function Home() {
     <main className="landing-home">
       <nav className="landing-nav">
         <div className="landing-brand" aria-label="CNXR">
-          <img src="/cnxr-logo.png" alt="" aria-hidden="true" className="landing-brand-mark" />
+          <img src="/jellyfishLogo.png" alt="" aria-hidden="true" className="landing-brand-mark" />
           <span className="display heading-md landing-brand-wordmark">CNXR</span>
         </div>
 
         <div className="landing-nav-links">
           <a href="#how">How it works</a>
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDark ? <SunIcon className="button-icon" /> : <MoonIcon className="button-icon" />}
+            <span className="theme-toggle-label">{isDark ? "Light" : "Dark"}</span>
+          </button>
           <motion.button
             className="btn btn-ghost"
             whileHover={{ scale: 1.02 }}
@@ -174,7 +189,7 @@ export default function Home() {
 
           <FadeUp delay={0.2}>
             <motion.div style={{ x: springX, y: springY }}>
-              <BrandVisual />
+              <BrandVisual isDark={isDark} />
             </motion.div>
           </FadeUp>
         </div>

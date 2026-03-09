@@ -1,28 +1,27 @@
-import './globals.css';
-import { IBM_Plex_Sans } from "next/font/google";
+import "./globals.css";
+import { Manrope, Sora } from "next/font/google";
 
-const ibmPlexSans = IBM_Plex_Sans({
+const manrope = Manrope({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-manrope",
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const sora = Sora({
+  subsets: ["latin"],
+  variable: "--font-sora",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata = {
-  title: 'CNXR',
-  description: 'CNXR is a social video app for spontaneous conversations.',
+  title: "CNXR",
+  description: "CNXR is a social video app for spontaneous conversations.",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:wght@300;600&family=DM+Sans:wght@300;400;500;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className={ibmPlexSans.className}>
+    <html lang="en" className={`${manrope.variable} ${sora.variable}`}>
+      <body>
         <div className="ambient-bg" aria-hidden="true" />
         {children}
       </body>
