@@ -59,7 +59,8 @@ export async function POST(request) {
       return Response.json({ error: 'Not authenticated with Clerk' }, { status: 401 });
     }
 
-    const clerkUser = await clerkClient.users.getUser(userId);
+    const client = await clerkClient();
+    const clerkUser = await client.users.getUser(userId);
     const primaryEmailId = clerkUser.primaryEmailAddressId;
     const emailEntry = clerkUser.emailAddresses.find((item) => item.id === primaryEmailId) || clerkUser.emailAddresses[0];
     const email = normalizeEmail(emailEntry?.emailAddress);
