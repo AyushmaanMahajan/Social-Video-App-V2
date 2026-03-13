@@ -2,7 +2,7 @@ import bcryptjs from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import pool from '@/lib/db';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { clerkClient, getAuth } from '@clerk/nextjs/server';
 import { normalizeEmail, validateUsername } from '@/lib/onboardingValidation';
 
 const MAX_USERNAME_LENGTH = 20;
@@ -48,13 +48,13 @@ async function generateUsername({ email, name }) {
   return fallback.slice(0, MAX_USERNAME_LENGTH);
 }
 
-export async function POST() {
+export async function POST(request) {
   try {
     if (!process.env.JWT_SECRET) {
       return Response.json({ error: 'Server JWT configuration missing' }, { status: 500 });
     }
 
-    const { userId } = auth();
+    const { userId } = getAuth(request);
     if (!userId) {
       return Response.json({ error: 'Not authenticated with Clerk' }, { status: 401 });
     }
