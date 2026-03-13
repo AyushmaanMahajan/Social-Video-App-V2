@@ -52,6 +52,7 @@ body {
   color: var(--color-text);
   font-family: var(--font-body);
   overflow-x: hidden;
+  min-height: 100%;
 }
 
 html {
@@ -97,6 +98,7 @@ body {
   transition: background 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
 body.dark-mode {
@@ -119,6 +121,14 @@ body.dark-mode {
     radial-gradient(circle at 82% 16%, rgba(76, 110, 145, 0.18), transparent 24%),
     linear-gradient(180deg, #1c1413 0%, #120d0d 100%);
   color: var(--text);
+}
+
+html.dark-mode {
+  background:
+    radial-gradient(circle at 14% 8%, rgba(255, 140, 66, 0.16), transparent 28%),
+    radial-gradient(circle at 82% 16%, rgba(76, 110, 145, 0.18), transparent 24%),
+    linear-gradient(180deg, #1c1413 0%, #120d0d 100%);
+  color: #fff4ef;
 }
 
 /* Shared typography */
@@ -546,6 +556,7 @@ body.dark-mode {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--background);
 }
 
 .app-header {
@@ -688,6 +699,7 @@ body.dark-mode {
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  background: var(--background);
 }
 
 .muted {
@@ -1575,7 +1587,8 @@ body.dark-mode {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 70vh;
+  min-height: 100%;
+  padding-bottom: 2rem;
 }
 
 .profile-form-card {
@@ -1621,6 +1634,71 @@ body.dark-mode {
 .auth-switch-top:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.sso-buttons {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 0.75rem;
+}
+
+.sso-btn {
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.sso-btn:hover:not(:disabled) {
+  border-color: var(--cta);
+  color: var(--cta);
+}
+
+.sso-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sso-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sso-divider {
+  position: relative;
+  text-align: center;
+  margin: 0.5rem 0 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.sso-divider::before,
+.sso-divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background: var(--border);
+}
+
+.sso-divider::before {
+  left: 0;
+}
+
+.sso-divider::after {
+  right: 0;
 }
 
 .profile-form {
@@ -6028,4 +6106,3 @@ body.dark-mode .legal-table thead th {
   background: rgba(255, 200, 87, 0.12);
   color: var(--text);
 }
-

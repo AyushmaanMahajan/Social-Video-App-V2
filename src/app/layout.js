@@ -1,4 +1,5 @@
 import "./globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Manrope, Sora } from "next/font/google";
 
 const manrope = Manrope({
@@ -22,8 +23,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${manrope.variable} ${sora.variable}`}>
       <body>
-        <div className="ambient-bg" aria-hidden="true" />
-        {children}
+        <ClerkProvider>
+          <div className="ambient-bg" aria-hidden="true" />
+          {children}
+        </ClerkProvider>
       </body>
     </html>
   );
