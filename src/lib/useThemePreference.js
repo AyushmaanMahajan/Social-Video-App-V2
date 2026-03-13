@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 const STORAGE_KEY = 'cnxr-theme';
 
 export function useThemePreference() {
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState('dark');
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -22,10 +22,7 @@ export function useThemePreference() {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (stored === 'dark' || stored === 'light') {
       setTheme(stored);
-      return;
     }
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setTheme(prefersDark ? 'dark' : 'light');
   }, []);
 
   const toggleTheme = () => {
