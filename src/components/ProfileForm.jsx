@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signup, login, resendVerification } from '@/lib/api';
-import { useSignIn } from '@clerk/nextjs';
+import { useAuth, useSignIn } from '@clerk/nextjs';
 
 function detectInitialLoginMode() {
   if (typeof window === 'undefined') return false;
@@ -25,6 +25,7 @@ function ProfileForm({ onProfileCreated }) {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [awaitingVerification, setAwaitingVerification] = useState(false);
   const { isLoaded: clerkLoaded, signIn } = useSignIn();
+  const { isSignedIn } = useAuth();
 
   const setAuthMode = (nextIsLogin) => {
     setIsLogin(nextIsLogin);
@@ -135,6 +136,10 @@ function ProfileForm({ onProfileCreated }) {
     setError('');
     setInfo('');
     try {
+      if (isSignedIn) {
+        router.replace('/clerk-callback');
+        return;
+      }
       await signIn.authenticateWithRedirect({
         strategy,
         redirectUrl: '/clerk-sso-callback',
