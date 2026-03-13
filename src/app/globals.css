@@ -3841,7 +3841,7 @@ html.dark-mode {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
-  background: #111926;
+  background: var(--card-bg);
   color: var(--text);
   border: 1px solid var(--border);
   width: 38px;
@@ -3856,8 +3856,8 @@ html.dark-mode {
 
 .modal-close:hover,
 .modal-close:focus-visible {
-  background: #1c2534;
-  border-color: var(--primary);
+  background: var(--card-surface);
+  border-color: var(--border);
   transform: translateY(-1px);
   outline: none;
 }
