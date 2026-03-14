@@ -8,8 +8,8 @@ export async function POST(request) {
   try {
     await pool.query(
       `
-      INSERT INTO user_presence (user_id, online, updated_at)
-      VALUES ($1, false, NOW())
+      INSERT INTO user_presence (user_id, online, show_status, updated_at)
+      VALUES ($1, false, true, NOW())
       ON CONFLICT (user_id)
       DO UPDATE SET online = false, updated_at = NOW()
       `,
