@@ -23,6 +23,7 @@ const USER_CACHE_KEY = 'current_user';
 
 export default function AppClient() {
   const { isDark, toggleTheme } = useThemePreference();
+  const logoSrc = isDark ? '/jellyfish_darkmode.png' : '/jellyfishLogo.png';
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [currentPage, setCurrentPage] = useState('encounter');
@@ -213,7 +214,7 @@ export default function AppClient() {
     <div className="app">
       <header className="app-header">
         <div className="app-brand">
-          <img src="/jellyfishLogo.png" alt="" aria-hidden="true" className="app-brand-mark" />
+          <img src={logoSrc} alt="" aria-hidden="true" className="app-brand-mark" />
           <h1>CNXR</h1>
         </div>
         <div className="header-actions">

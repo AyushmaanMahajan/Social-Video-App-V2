@@ -21,7 +21,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${manrope.variable} ${sora.variable} dark-mode`}>
+    <html lang="en" className={`${manrope.variable} ${sora.variable}`}>
       <body>
         <ClerkProvider>
           <div className="ambient-bg" aria-hidden="true" />

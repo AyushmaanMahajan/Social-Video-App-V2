@@ -4433,24 +4433,26 @@ html.dark-mode {
 .delete-account-btn {
   width: 100%;
   padding: 0.75rem 1rem;
-  background: transparent;
-  color: var(--pass-color);
-  border: 1px solid var(--pass-color);
-  border-radius: 10px;
-  font-weight: 600;
+  background: rgba(255, 107, 107, 0.08);
+  color: #cb3f47;
+  border: 1px solid rgba(255, 107, 107, 0.36);
+  border-radius: 12px;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .delete-account-btn:hover {
-  background: var(--pass-color);
+  background: rgba(255, 107, 107, 0.16);
+  border-color: rgba(255, 107, 107, 0.52);
   color: white;
+  transform: translateY(-1px);
 }
 
 .delete-confirm-card {
-  border: 1px solid #66313a;
+  border: 1px solid rgba(255, 107, 107, 0.28);
   border-radius: 12px;
-  background: rgba(166, 56, 78, 0.08);
+  background: rgba(255, 107, 107, 0.08);
   padding: 0.85rem;
   display: grid;
   gap: 0.6rem;
@@ -4464,18 +4466,18 @@ html.dark-mode {
 
 .delete-confirm-input {
   width: 100%;
-  border: 1px solid #7a3b46;
-  background: #111926;
+  border: 1px solid rgba(76, 110, 145, 0.16);
+  background: rgba(255, 249, 245, 0.95);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.62rem 0.7rem;
   font-size: 0.92rem;
 }
 
 .delete-confirm-input:focus {
   outline: none;
-  border-color: var(--pass-color);
-  box-shadow: 0 0 0 2px rgba(166, 56, 78, 0.25);
+  border-color: rgba(255, 107, 107, 0.42);
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.14);
 }
 
 .delete-confirm-actions {
@@ -4494,18 +4496,20 @@ html.dark-mode {
 }
 
 .delete-confirm-btn {
-  background: var(--pass-color);
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8c42 65%);
   color: white;
-  border-color: #9e3142;
+  border-color: transparent;
+  box-shadow: 0 10px 20px rgba(255, 107, 107, 0.2);
 }
 
 .delete-confirm-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .delete-cancel-btn {
-  background: #1d2736;
+  background: rgba(255, 255, 255, 0.84);
   color: var(--text);
   border-color: var(--border);
 }
@@ -4933,26 +4937,44 @@ body.dark-mode .tab-btn.active {
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .photo-upload-trigger {
-  border: 1px solid var(--border);
-  background: #1d2736;
-  color: var(--text);
-  border-radius: 10px;
-  padding: 0.62rem 0.95rem;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: var(--gradient-primary);
+  color: #fff;
+  border-radius: 14px;
+  padding: 0.68rem 1.05rem;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
+  box-shadow: 0 12px 24px rgba(255, 140, 66, 0.2);
+  transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.photo-upload-trigger:hover:not(:disabled) {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(255, 140, 66, 0.24);
 }
 
 .photo-upload-trigger:disabled {
-  opacity: 0.65;
+  opacity: 1;
   cursor: not-allowed;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.74);
+  border-color: rgba(76, 110, 145, 0.12);
+  box-shadow: none;
 }
 
 .photo-upload-hint {
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
+  font-weight: 500;
 }
 
 .photo-upload-status,
@@ -4962,11 +4984,11 @@ body.dark-mode .tab-btn.active {
 }
 
 .photo-upload-status {
-  color: #8bc6ff;
+  color: var(--color-trust);
 }
 
 .photo-upload-error {
-  color: #ff9aa2;
+  color: var(--color-accent);
 }
 
 .photo-overlay {
@@ -6104,5 +6126,69 @@ body.dark-mode .legal-page {
 
 body.dark-mode .legal-table thead th {
   background: rgba(255, 200, 87, 0.12);
+  color: var(--text);
+}
+
+body.dark-mode .photo-upload-trigger {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8c42 52%, #ffc857 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 14px 28px rgba(255, 140, 66, 0.22);
+}
+
+body.dark-mode .photo-upload-trigger:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 18px 34px rgba(255, 140, 66, 0.3);
+}
+
+body.dark-mode .photo-upload-trigger:disabled {
+  background: rgba(45, 31, 31, 0.92);
+  border-color: rgba(255, 200, 87, 0.12);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+body.dark-mode .photo-upload-hint {
+  color: var(--text-muted);
+}
+
+body.dark-mode .photo-upload-status {
+  color: #ffd59d;
+}
+
+body.dark-mode .photo-upload-error {
+  color: #ffadad;
+}
+
+body.dark-mode .delete-account-btn {
+  background: rgba(255, 107, 107, 0.14);
+  color: #ffd7d7;
+  border-color: rgba(255, 107, 107, 0.42);
+}
+
+body.dark-mode .delete-account-btn:hover {
+  background: rgba(255, 107, 107, 0.24);
+  border-color: rgba(255, 107, 107, 0.62);
+}
+
+body.dark-mode .delete-confirm-card {
+  border-color: rgba(255, 107, 107, 0.34);
+  background: rgba(255, 107, 107, 0.1);
+}
+
+body.dark-mode .delete-confirm-input {
+  background: rgba(34, 24, 24, 0.95);
+  border-color: rgba(255, 200, 87, 0.16);
+  color: var(--text);
+}
+
+body.dark-mode .delete-confirm-input:focus {
+  border-color: rgba(255, 107, 107, 0.52);
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2);
+}
+
+body.dark-mode .delete-cancel-btn {
+  background: rgba(45, 31, 31, 0.92);
+  border-color: rgba(255, 200, 87, 0.12);
   color: var(--text);
 }

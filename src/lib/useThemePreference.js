@@ -4,8 +4,17 @@ import { useEffect, useState } from 'react';
 
 const STORAGE_KEY = 'cnxr-theme';
 
+function resolveInitialTheme() {
+  if (typeof window === 'undefined') return 'light';
+
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  if (stored === 'dark' || stored === 'light') return stored;
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export function useThemePreference() {
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(resolveInitialTheme);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -16,14 +25,6 @@ export function useThemePreference() {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === 'dark' || stored === 'light') {
-      setTheme(stored);
-    }
-  }, []);
 
   const toggleTheme = () => {
     setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'));
