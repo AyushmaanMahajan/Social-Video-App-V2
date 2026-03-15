@@ -9,6 +9,7 @@
     "lint": "next lint",
     "init-db": "node init-db.js",
     "seed:users": "node scripts/seed-more-users.js",
+    "cleanup:discovery-sessions": "node scripts/cleanup-discovery-sessions.js",
     "cleanup:photo-base64": "node scripts/cleanup-base64-photos.js",
     "enforce:photo-url-storage": "node scripts/enforce-photo-url-storage.js"
   },

@@ -36,6 +36,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS safety_acknowledged BOOLEAN DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS report_count INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS suspension_until TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_discoverable BOOLEAN DEFAULT TRUE;
 ALTER TABLE users ALTER COLUMN name DROP NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_lower_unique ON users (LOWER(username)) WHERE username IS NOT NULL;
@@ -237,6 +238,17 @@ CREATE TABLE IF NOT EXISTS user_presence (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_user_presence_online ON user_presence(online);
+
+-- Discovery queue rotation state per user
+CREATE TABLE IF NOT EXISTS discovery_sessions (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  rotation_count INTEGER NOT NULL DEFAULT 0,
+  seen_user_ids INTEGER[] NOT NULL DEFAULT '{}',
+  last_refreshed TIMESTAMP NOT NULL DEFAULT NOW(),
+  CONSTRAINT discovery_sessions_rotation_count_check CHECK (rotation_count BETWEEN 0 AND 2)
+);
+CREATE INDEX IF NOT EXISTS idx_discovery_sessions_last_refreshed ON discovery_sessions(last_refreshed);
+CREATE INDEX IF NOT EXISTS idx_users_is_discoverable ON users(is_discoverable);
 
 
 

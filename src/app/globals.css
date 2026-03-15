@@ -61,7 +61,7 @@ body.app-blur {
 
 body.app-blur .app,
 body.app-blur .video-host {
-  filter: blur(16px) brightness(0.45);
+  filter: blur(18px) brightness(0.08);
   transition: filter 0.2s ease;
 }
 
@@ -72,7 +72,13 @@ body.capture-guard-active::before {
   inset: 0;
   z-index: 9998;
   pointer-events: none;
-  background: rgba(var(--background-rgb), 0.94);
+  background: rgba(0, 0, 0, 0.98);
+}
+
+body.capture-guard-active .app,
+body.capture-guard-active .video-host {
+  opacity: 0;
+  transition: opacity 0.1s ease;
 }
 
 html {

@@ -1,5 +1,6 @@
 export function blockScreenshotKeys(onAttempt) {
   let guardTimeout = null;
+  let lastTriggerTs = 0;
 
   const triggerGuard = () => {
     if (typeof document === 'undefined') return;
@@ -12,14 +13,17 @@ export function blockScreenshotKeys(onAttempt) {
   };
 
   const handler = (event) => {
+    const now = Date.now();
+    if (now - lastTriggerTs < 900) return;
+
     const key = String(event?.key || '').toLowerCase();
     const isPrintScreen = key === 'printscreen';
     const isWindowsSnip = event.shiftKey && (event.metaKey || event.ctrlKey) && key === 's';
     const isMacCapture = event.metaKey && event.shiftKey && (key === '3' || key === '4' || key === '5');
-    const isDevCapture = event.ctrlKey && event.shiftKey && key === 'i';
 
-    if (!isPrintScreen && !isWindowsSnip && !isMacCapture && !isDevCapture) return;
+    if (!isPrintScreen && !isWindowsSnip && !isMacCapture) return;
 
+    lastTriggerTs = now;
     event.preventDefault();
     event.stopPropagation();
     triggerGuard();

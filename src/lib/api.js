@@ -129,6 +129,11 @@ export const getEncounterProfile = async () => {
   return data?.profile || null;
 };
 
+export const getDiscoveryProfile = async () => {
+  const { data } = await axios.get('/api/discovery/next');
+  return data;
+};
+
 export const skipEncounterProfile = async (skippedUserId) => {
   const { data } = await axios.post('/api/encounter/skip', { skippedUserId });
   return data;

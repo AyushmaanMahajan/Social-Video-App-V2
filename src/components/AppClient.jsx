@@ -13,6 +13,9 @@ import VideoChat from './VideoChat';
 import { deleteMyAccount, getMe, getToken, logoutSession, removeToken, updateUser } from '@/lib/api';
 import { useThemePreference } from '@/lib/useThemePreference';
 import { ChatIcon, CompassIcon, MoonIcon, SlidersIcon, SunIcon, UserIcon } from './UiIcons';
+import { blockScreenshotKeys } from '@/lib/security/screenshotProtection';
+import { enableFocusProtection } from '@/lib/security/focusProtection';
+import { detectScreenCapture } from '@/lib/security/captureDetection';
 
 const NAV_ITEMS = [
   { id: 'encounter', label: 'Encounter', icon: CompassIcon },
@@ -129,6 +132,35 @@ export default function AppClient() {
     }, 300);
     return () => window.clearTimeout(timeoutId);
   }, [videoActive]);
+
+  useEffect(() => {
+    const protectProfileView =
+      Boolean(currentUser?.onboarding_completed) &&
+      currentPage === 'profile' &&
+      !videoActive;
+
+    if (!protectProfileView) return () => {};
+
+    const clearScreenshotProtection = blockScreenshotKeys(() => {
+      window.alert('Screenshots are disabled on protected screens.');
+    });
+    const clearFocusProtection = enableFocusProtection();
+    const clearCaptureDetection = detectScreenCapture(() => {
+      document.body.classList.add('capture-guard-active');
+      window.setTimeout(() => {
+        document.body.classList.remove('capture-guard-active');
+      }, 1400);
+      window.alert('Screen recording detected. Protected content is hidden.');
+    });
+
+    return () => {
+      clearScreenshotProtection?.();
+      clearFocusProtection?.();
+      clearCaptureDetection?.();
+      document.body.classList.remove('capture-guard-active');
+      document.body.classList.remove('app-blur');
+    };
+  }, [currentUser?.onboarding_completed, currentPage, videoActive]);
 
   const handleProfileCreated = (user) => {
     setCurrentUser(user);
