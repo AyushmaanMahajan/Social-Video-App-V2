@@ -179,9 +179,10 @@ function VideoChat({
   useEffect(() => {
     if (typeof document === 'undefined') return () => {};
 
-    const removeScreenshotBlock = blockScreenshotKeys(() =>
-      triggerSecurityAlert('Screenshots are disabled during encounters.')
-    );
+    const removeScreenshotBlock = blockScreenshotKeys(() => {
+      setCaptureDetected(true);
+      triggerSecurityAlert('Screenshots are disabled during encounters.');
+    });
     const removeFocusProtection = enableFocusProtection();
     const removeCaptureDetection = detectScreenCapture(() => {
       setCaptureDetected(true);
