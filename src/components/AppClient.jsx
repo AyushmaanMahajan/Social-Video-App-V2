@@ -32,6 +32,8 @@ export default function AppClient() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [activeEncounterMatch, setActiveEncounterMatch] = useState(null);
   const [videoActive, setVideoActive] = useState(false);
+  const [videoHostMounted, setVideoHostMounted] = useState(false);
+  const [videoHostVisible, setVideoHostVisible] = useState(false);
   const [lastPageBeforeCall, setLastPageBeforeCall] = useState('encounter');
   const { socket, connected: socketConnected } = useVideoSocket(Boolean(currentUser?.onboarding_completed));
   const [onlineIds, setOnlineIds] = useState([]);
@@ -111,6 +113,22 @@ export default function AppClient() {
     socket.on('presence-update', handler);
     return () => socket.off('presence-update', handler);
   }, [socket]);
+
+  useEffect(() => {
+    if (videoActive) {
+      setVideoHostMounted(true);
+      const rafId = window.requestAnimationFrame(() => {
+        setVideoHostVisible(true);
+      });
+      return () => window.cancelAnimationFrame(rafId);
+    }
+
+    setVideoHostVisible(false);
+    const timeoutId = window.setTimeout(() => {
+      setVideoHostMounted(false);
+    }, 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [videoActive]);
 
   const handleProfileCreated = (user) => {
     setCurrentUser(user);
@@ -325,9 +343,9 @@ export default function AppClient() {
         />
       )}
 
-      {currentUser && currentUser.onboarding_completed && videoActive && (
+      {currentUser && currentUser.onboarding_completed && videoHostMounted && (
         <div
-          className={`video-host ${currentPage !== 'encounter' ? 'floating' : 'full'}`}
+          className={`video-host ${currentPage !== 'encounter' ? 'floating' : 'full'} ${videoHostVisible ? 'is-visible' : 'is-hidden'}`}
           style={
             currentPage !== 'encounter'
               ? { left: floatPos.x, top: floatPos.y, right: 'auto', bottom: 'auto' }

@@ -9,6 +9,80 @@ import { blockScreenshotKeys } from '@/lib/security/screenshotProtection';
 import { enableFocusProtection } from '@/lib/security/focusProtection';
 import { detectScreenCapture } from '@/lib/security/captureDetection';
 
+function SendIcon({ className = 'btn-icon' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M21 3 10 14" />
+      <path d="m21 3-7 18-4-7-7-4 18-7Z" />
+    </svg>
+  );
+}
+
+function ReportIcon({ className = 'btn-icon' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 3 3.5 7.2v5.6c0 4.8 3.4 7.9 8.5 9.9 5.1-2 8.5-5.1 8.5-9.9V7.2L12 3Z" />
+      <path d="M12 8.2v5" />
+      <circle cx="12" cy="16.3" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function BlockIcon({ className = 'btn-icon' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="m8.5 15.5 7-7" />
+    </svg>
+  );
+}
+
+function EndCallIcon({ className = 'btn-icon' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M4 14.5c4.2-4.1 11.8-4.1 16 0" />
+      <path d="m9 15 1.1 2.8a1 1 0 0 1-.6 1.3l-1.9.7a1 1 0 0 1-1.1-.3l-2.1-2.6a1 1 0 0 1 .2-1.5L6 14.5" />
+      <path d="m15 15-1.1 2.8a1 1 0 0 0 .6 1.3l1.9.7a1 1 0 0 0 1.1-.3l2.1-2.6a1 1 0 0 0-.2-1.5l-1.2-.9" />
+    </svg>
+  );
+}
+
 function VideoChat({
   socket: externalSocket,
   socketConnected: externalConnected,
@@ -579,12 +653,12 @@ function VideoChat({
           <div className="video-frame remote">
             <video ref={remoteVideoRef} autoPlay playsInline className="video-remote" />
             <WatermarkOverlay username={watermarkUser} sessionTag={watermarkTag} />
-            <div className="video-overlay">
+            <div className="video-peer-pill">
               <span className="muted">{peer?.name || 'Remote user'}</span>
             </div>
           </div>
         </div>
-        <div className="video-local-pane">
+        <div className="video-local-pane pip">
           <div className="video-frame local">
             <video ref={localVideoRef} autoPlay muted playsInline className="video-local" />
             <WatermarkOverlay username={watermarkUser} sessionTag={watermarkTag} />
@@ -613,8 +687,14 @@ function VideoChat({
             onKeyDown={(e) => e.key === 'Enter' && sendCallMessage()}
             placeholder="Type a message..."
           />
-          <button type="button" className="btn-send-chat" onClick={sendCallMessage}>
-            Send
+          <button
+            type="button"
+            className="btn-send-chat"
+            onClick={sendCallMessage}
+            aria-label="Send message"
+            title="Send message"
+          >
+            <SendIcon />
           </button>
         </div>
       </div>
@@ -622,6 +702,7 @@ function VideoChat({
         <span className="connection-text">{connectionStatus || callState}</span>
         <div className="video-safety-actions">
           <select
+            className="video-safety-select"
             value={reportReason}
             onChange={(e) => setReportReason(e.target.value)}
             disabled={safetyBusy}
@@ -632,18 +713,38 @@ function VideoChat({
             <option value="spam">Spam</option>
             <option value="other">Other</option>
           </select>
-          <button type="button" className="btn-warn" onClick={handleReportUser} disabled={safetyBusy}>
-            {safetyBusy ? 'Working...' : 'Report'}
+          <button
+            type="button"
+            className="video-control-btn btn-warn"
+            onClick={handleReportUser}
+            disabled={safetyBusy}
+            aria-label={safetyBusy ? 'Submitting report' : 'Report user'}
+            title={safetyBusy ? 'Submitting report' : 'Report user'}
+          >
+            <ReportIcon />
           </button>
-          <button type="button" className="btn-danger" onClick={handleBlockUser} disabled={safetyBusy}>
-            Block
+          <button
+            type="button"
+            className="video-control-btn btn-danger"
+            onClick={handleBlockUser}
+            disabled={safetyBusy}
+            aria-label="Block user"
+            title="Block user"
+          >
+            <BlockIcon />
           </button>
         </div>
-        {safetyMessage && <span className="connection-text">{safetyMessage}</span>}
-        <button type="button" className="btn-end-call" onClick={endCall}>
-          Leave Encounter
+        <button
+          type="button"
+          className="video-control-btn btn-end-call"
+          onClick={endCall}
+          aria-label="Leave encounter"
+          title="Leave encounter"
+        >
+          <EndCallIcon />
         </button>
       </div>
+      {safetyMessage && <span className="video-safety-message">{safetyMessage}</span>}
       {captureDetected && (
         <div className="video-capture-blocker">
           <p>Screen recording detected. Video is paused.</p>
