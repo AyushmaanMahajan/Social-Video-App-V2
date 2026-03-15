@@ -347,6 +347,7 @@ export default function AppClient() {
             layoutMode={currentPage !== 'encounter' ? 'floating' : 'full'}
             floatingPos={floatPos}
             onFloatingPosChange={setFloatPos}
+            currentUser={currentUser}
           />
         </div>
       )}

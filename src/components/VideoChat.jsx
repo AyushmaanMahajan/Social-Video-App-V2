@@ -4,6 +4,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoSocket } from '@/lib/useVideoSocket';
 import { getIceServers } from '@/lib/webrtcConfig';
 import { blockUser, reportEncounterUser } from '@/lib/api';
+import WatermarkOverlay from '@/components/video/WatermarkOverlay';
+import { blockScreenshotKeys } from '@/lib/security/screenshotProtection';
+import { enableFocusProtection } from '@/lib/security/focusProtection';
+import { detectScreenCapture } from '@/lib/security/captureDetection';
 
 function VideoChat({
   socket: externalSocket,
@@ -14,6 +18,7 @@ function VideoChat({
   layoutMode = 'full',
   floatingPos = { x: 12, y: 12 },
   onFloatingPosChange = () => {},
+  currentUser = null,
 }) {
   const { socket: hookSocket, connected: hookConnected } = useVideoSocket(!externalSocket);
   const socket = externalSocket || hookSocket;
@@ -31,6 +36,7 @@ function VideoChat({
   const [reportReason, setReportReason] = useState('harassment');
   const [safetyMessage, setSafetyMessage] = useState('');
   const [safetyBusy, setSafetyBusy] = useState(false);
+  const [captureDetected, setCaptureDetected] = useState(false);
 
   const isCallerRef = useRef(false);
   const localVideoRef = useRef(null);
@@ -42,8 +48,20 @@ function VideoChat({
   const terminalIceFailureReportedRef = useRef(false);
   const disconnectedTimerRef = useRef(null);
   const dragRef = useRef({ active: false, startX: 0, startY: 0, origin: floatingPos });
+  const securityAlertTsRef = useRef(0);
 
   const testMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('videoTest');
+  const watermarkUser = currentUser?.username || currentUser?.name || 'Member';
+  const watermarkTag = callId ? `#${String(callId).slice(-6)}` : '';
+
+  const triggerSecurityAlert = useCallback((message) => {
+    setSafetyMessage(message);
+    const now = Date.now();
+    if (now - securityAlertTsRef.current < 3000) return;
+    securityAlertTsRef.current = now;
+    window.alert(message);
+  }, []);
+
   const emitDiagnostic = useCallback((stage, status, message, meta = null, explicitCallId = null) => {
     console.log(`[video:${stage}:${status}] ${message}`, meta || {});
     if (!socket) return;
@@ -81,7 +99,33 @@ function VideoChat({
     setChatInput('');
     setSafetyMessage('');
     setSafetyBusy(false);
+    setCaptureDetected(false);
   }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return () => {};
+
+    const removeScreenshotBlock = blockScreenshotKeys(() =>
+      triggerSecurityAlert('Screenshots are disabled during encounters.')
+    );
+    const removeFocusProtection = enableFocusProtection();
+    const removeCaptureDetection = detectScreenCapture(() => {
+      setCaptureDetected(true);
+      triggerSecurityAlert('Screen recording detected. Video is paused.');
+    });
+
+    return () => {
+      removeScreenshotBlock?.();
+      removeFocusProtection?.();
+      removeCaptureDetection?.();
+    };
+  }, [triggerSecurityAlert]);
+
+  useEffect(() => {
+    if (!captureDetected) return;
+    remoteVideoRef.current?.pause?.();
+    localVideoRef.current?.pause?.();
+  }, [captureDetected]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -447,6 +491,12 @@ function VideoChat({
     setChatInput('');
   }, [socket, peer?.id, chatInput, callId]);
 
+  const resumeAfterCaptureWarning = useCallback(() => {
+    setCaptureDetected(false);
+    remoteVideoRef.current?.play?.().catch(() => {});
+    localVideoRef.current?.play?.().catch(() => {});
+  }, []);
+
   const handleReportUser = useCallback(async () => {
     if (!peer?.id || safetyBusy) return;
     setSafetyBusy(true);
@@ -489,6 +539,9 @@ function VideoChat({
   if (!socketConnected) {
     return (
       <div className="video-shell">
+        <div className="video-security-warning">
+          Recording or screenshots of encounters are not allowed. Activity may be traced using dynamic watermarks.
+        </div>
         <p className="muted">Connecting to network...</p>
       </div>
     );
@@ -497,6 +550,9 @@ function VideoChat({
   if (callState === 'idle') {
     return (
       <div className="video-shell">
+        <div className="video-security-warning">
+          Recording or screenshots of encounters are not allowed. Activity may be traced using dynamic watermarks.
+        </div>
         <p className="muted">Waiting for a connection...</p>
         {errorMessage && <div className="video-error-toast">{errorMessage}</div>}
       </div>
@@ -507,6 +563,9 @@ function VideoChat({
     <div
       className={`video-shell ${layoutMode === 'floating' ? 'floating' : 'full'}`}
     >
+      <div className="video-security-warning">
+        Recording or screenshots of encounters are not allowed. Activity may be traced using dynamic watermarks.
+      </div>
       {layoutMode === 'floating' && (
         <div
           className="video-drag-handle"
@@ -519,6 +578,7 @@ function VideoChat({
         <div className="video-remote-pane">
           <div className="video-frame remote">
             <video ref={remoteVideoRef} autoPlay playsInline className="video-remote" />
+            <WatermarkOverlay username={watermarkUser} sessionTag={watermarkTag} />
             <div className="video-overlay">
               <span className="muted">{peer?.name || 'Remote user'}</span>
             </div>
@@ -527,6 +587,7 @@ function VideoChat({
         <div className="video-local-pane">
           <div className="video-frame local">
             <video ref={localVideoRef} autoPlay muted playsInline className="video-local" />
+            <WatermarkOverlay username={watermarkUser} sessionTag={watermarkTag} />
           </div>
           <span className="video-self-label muted">You</span>
         </div>
@@ -583,6 +644,14 @@ function VideoChat({
           Leave Encounter
         </button>
       </div>
+      {captureDetected && (
+        <div className="video-capture-blocker">
+          <p>Screen recording detected. Video is paused.</p>
+          <button type="button" className="btn btn-ghost" onClick={resumeAfterCaptureWarning}>
+            Resume Video
+          </button>
+        </div>
+      )}
       {errorMessage && <div className="video-error-toast">{errorMessage}</div>}
     </div>
   );
