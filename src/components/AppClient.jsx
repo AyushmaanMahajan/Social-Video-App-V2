@@ -13,6 +13,9 @@ import VideoChat from './VideoChat';
 import { deleteMyAccount, getMe, getToken, logoutSession, removeToken, updateUser } from '@/lib/api';
 import { useThemePreference } from '@/lib/useThemePreference';
 import { ChatIcon, CompassIcon, MoonIcon, SlidersIcon, SunIcon, UserIcon } from './UiIcons';
+import { blockScreenshotKeys } from '@/lib/security/screenshotProtection';
+import { enableFocusProtection } from '@/lib/security/focusProtection';
+import { detectScreenCapture } from '@/lib/security/captureDetection';
 
 const NAV_ITEMS = [
   { id: 'encounter', label: 'Encounter', icon: CompassIcon },
@@ -23,6 +26,7 @@ const USER_CACHE_KEY = 'current_user';
 
 export default function AppClient() {
   const { isDark, toggleTheme } = useThemePreference();
+  const logoSrc = isDark ? '/jellyfish_darkmode.png' : '/jellyfishLogo.png';
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [currentPage, setCurrentPage] = useState('encounter');
@@ -31,6 +35,8 @@ export default function AppClient() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [activeEncounterMatch, setActiveEncounterMatch] = useState(null);
   const [videoActive, setVideoActive] = useState(false);
+  const [videoHostMounted, setVideoHostMounted] = useState(false);
+  const [videoHostVisible, setVideoHostVisible] = useState(false);
   const [lastPageBeforeCall, setLastPageBeforeCall] = useState('encounter');
   const { socket, connected: socketConnected } = useVideoSocket(Boolean(currentUser?.onboarding_completed));
   const [onlineIds, setOnlineIds] = useState([]);
@@ -110,6 +116,51 @@ export default function AppClient() {
     socket.on('presence-update', handler);
     return () => socket.off('presence-update', handler);
   }, [socket]);
+
+  useEffect(() => {
+    if (videoActive) {
+      setVideoHostMounted(true);
+      const rafId = window.requestAnimationFrame(() => {
+        setVideoHostVisible(true);
+      });
+      return () => window.cancelAnimationFrame(rafId);
+    }
+
+    setVideoHostVisible(false);
+    const timeoutId = window.setTimeout(() => {
+      setVideoHostMounted(false);
+    }, 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [videoActive]);
+
+  useEffect(() => {
+    const protectProfileView =
+      Boolean(currentUser?.onboarding_completed) &&
+      currentPage === 'profile' &&
+      !videoActive;
+
+    if (!protectProfileView) return () => {};
+
+    const clearScreenshotProtection = blockScreenshotKeys(() => {
+      window.alert('Screenshots are disabled on protected screens.');
+    });
+    const clearFocusProtection = enableFocusProtection();
+    const clearCaptureDetection = detectScreenCapture(() => {
+      document.body.classList.add('capture-guard-active');
+      window.setTimeout(() => {
+        document.body.classList.remove('capture-guard-active');
+      }, 1400);
+      window.alert('Screen recording detected. Protected content is hidden.');
+    });
+
+    return () => {
+      clearScreenshotProtection?.();
+      clearFocusProtection?.();
+      clearCaptureDetection?.();
+      document.body.classList.remove('capture-guard-active');
+      document.body.classList.remove('app-blur');
+    };
+  }, [currentUser?.onboarding_completed, currentPage, videoActive]);
 
   const handleProfileCreated = (user) => {
     setCurrentUser(user);
@@ -213,7 +264,7 @@ export default function AppClient() {
     <div className="app">
       <header className="app-header">
         <div className="app-brand">
-          <img src="/jellyfishLogo.png" alt="" aria-hidden="true" className="app-brand-mark" />
+          <img src={logoSrc} alt="" aria-hidden="true" className="app-brand-mark" />
           <h1>CNXR</h1>
         </div>
         <div className="header-actions">
@@ -324,9 +375,9 @@ export default function AppClient() {
         />
       )}
 
-      {currentUser && currentUser.onboarding_completed && videoActive && (
+      {currentUser && currentUser.onboarding_completed && videoHostMounted && (
         <div
-          className={`video-host ${currentPage !== 'encounter' ? 'floating' : 'full'}`}
+          className={`video-host ${currentPage !== 'encounter' ? 'floating' : 'full'} ${videoHostVisible ? 'is-visible' : 'is-hidden'}`}
           style={
             currentPage !== 'encounter'
               ? { left: floatPos.x, top: floatPos.y, right: 'auto', bottom: 'auto' }
@@ -346,6 +397,7 @@ export default function AppClient() {
             layoutMode={currentPage !== 'encounter' ? 'floating' : 'full'}
             floatingPos={floatPos}
             onFloatingPosChange={setFloatPos}
+            currentUser={currentUser}
           />
         </div>
       )}

@@ -28,7 +28,7 @@ const matchingEncounterPairs = new Set();
 
 function broadcastPresence(videoNs) {
   pool
-    .query('SELECT user_id FROM user_presence WHERE online = true AND show_status = true')
+    .query('SELECT user_id FROM user_presence WHERE online = true AND COALESCE(show_status, true) = true')
     .then((res) => {
       const ids = res.rows.map((r) => Number(r.user_id));
       videoNs.emit('presence-update', ids);
@@ -44,7 +44,7 @@ async function setPresence(userId, { online = null, showStatus = null } = {}) {
     ON CONFLICT (user_id)
     DO UPDATE SET
       online = COALESCE($2, user_presence.online),
-      show_status = COALESCE($3, user_presence.show_status),
+      show_status = COALESCE($3, user_presence.show_status, true),
       updated_at = NOW()
     `,
     [userId, online, showStatus]

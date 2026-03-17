@@ -26,7 +26,7 @@ export async function GET(request) {
       statuses: res.rows.map((r) => ({
         userId: Number(r.user_id),
         online: Boolean(r.online),
-        showStatus: Boolean(r.show_status),
+        showStatus: r.show_status !== false,
       })),
     });
   } catch (error) {

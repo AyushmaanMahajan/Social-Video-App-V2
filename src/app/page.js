@@ -48,7 +48,7 @@ function FadeUp({ children, delay = 0 }) {
   )
 }
 
-function BrandVisual({ isDark }) {
+function BrandVisual({ isDark, logoSrc }) {
   return (
     <div className="landing-brand-visual">
       {[0, 1, 2].map((i) => (
@@ -73,7 +73,7 @@ function BrandVisual({ isDark }) {
         transition={{ duration: 6, repeat: Infinity, ease: motionEase }}
       >
         <div className="landing-brand-glow" aria-hidden="true" />
-        <img src="/jellyfishLogo.png" alt="CNXR logo" className="landing-brand-panel-mark" />
+        <img src={logoSrc} alt="CNXR logo" className="landing-brand-panel-mark" />
       </motion.div>
     </div>
   )
@@ -82,6 +82,7 @@ function BrandVisual({ isDark }) {
 export default function Home() {
   const router = useRouter()
   const { isDark, toggleTheme } = useThemePreference()
+  const logoSrc = isDark ? "/jellyfish_darkmode.png" : "/jellyfishLogo.png"
   const [loading, setLoading] = useState(true)
 
   const mouseX = useMotionValue(0)
@@ -121,7 +122,7 @@ export default function Home() {
     <main className="landing-home">
       <nav className="landing-nav">
         <div className="landing-brand" aria-label="CNXR">
-          <img src="/jellyfishLogo.png" alt="" aria-hidden="true" className="landing-brand-mark" />
+          <img src={logoSrc} alt="" aria-hidden="true" className="landing-brand-mark" />
           <span className="display heading-md landing-brand-wordmark">CNXR</span>
         </div>
 
@@ -189,7 +190,7 @@ export default function Home() {
 
           <FadeUp delay={0.2}>
             <motion.div style={{ x: springX, y: springY }}>
-              <BrandVisual isDark={isDark} />
+              <BrandVisual isDark={isDark} logoSrc={logoSrc} />
             </motion.div>
           </FadeUp>
         </div>

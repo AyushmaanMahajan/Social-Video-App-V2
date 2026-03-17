@@ -80,7 +80,7 @@ export async function POST(request) {
         INSERT INTO user_presence (user_id, online, show_status, updated_at)
         VALUES ($1, true, true, NOW())
         ON CONFLICT (user_id)
-        DO UPDATE SET online = true, updated_at = NOW()
+        DO UPDATE SET online = true, show_status = COALESCE(user_presence.show_status, true), updated_at = NOW()
         `,
         [user.id]
       );

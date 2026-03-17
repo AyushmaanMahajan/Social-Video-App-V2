@@ -9,7 +9,7 @@ export async function GET(request) {
       'SELECT show_status FROM user_presence WHERE user_id = $1',
       [auth.userId]
     );
-    const showStatus = res.rows[0] ? Boolean(res.rows[0].show_status) : true;
+    const showStatus = res.rows[0] ? res.rows[0].show_status !== false : true;
     return Response.json({ showStatus });
   } catch (error) {
     console.error('presence visibility get error', error);

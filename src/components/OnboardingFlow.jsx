@@ -619,7 +619,7 @@ const s = {
   stepDot: {
     width: 34, height: 34, borderRadius: '50%',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 15, color: '#fff', fontWeight: 700, cursor: 'default',
+    fontSize: 15, color: 'var(--ui-btn-primary-text, #fff)', fontWeight: 700, cursor: 'default',
   },
   photoGrid: {
     display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 4,
@@ -630,30 +630,30 @@ const s = {
   photoImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
   photoRemove: {
     position: 'absolute', top: 4, right: 4,
-    background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none',
+    background: 'var(--ui-overlay-bg, rgba(0,0,0,0.55))', color: 'var(--ui-btn-primary-text, #fff)', border: 'none',
     borderRadius: '50%', width: 22, height: 22,
     cursor: 'pointer', fontSize: 14,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   photoAdd: {
     aspectRatio: '1', borderRadius: 10,
-    border: '2px dashed var(--muted-bg, #2a2a3a)',
+    border: '2px dashed var(--ui-btn-neutral-border, var(--muted-bg, #2a2a3a))',
     background: 'transparent', cursor: 'pointer',
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     color: 'var(--text-muted)', transition: 'border-color 0.2s',
   },
   textarea: {
     width: '100%', boxSizing: 'border-box',
-    background: 'var(--input-bg, #1e1e2e)',
-    border: '1.5px solid var(--input-border, #333)',
+    background: 'var(--ui-input-bg, var(--input-bg, #1e1e2e))',
+    border: '1.5px solid var(--ui-input-border, var(--input-border, #333))',
     borderRadius: 10, color: 'var(--text)',
     padding: '12px 14px', fontSize: 14, lineHeight: 1.55,
     resize: 'vertical', fontFamily: 'inherit', outline: 'none',
   },
   promptCard: {
-    background: 'var(--card-bg, rgba(255,255,255,0.04))',
+    background: 'var(--ui-block-bg, var(--card-bg, rgba(255,255,255,0.04)))',
     borderRadius: 12, padding: 14, marginBottom: 12,
-    border: '1px solid var(--border, rgba(255,255,255,0.08))',
+    border: '1px solid var(--ui-block-border, var(--border, rgba(255,255,255,0.08)))',
   },
   promptSelect: {
     background: 'transparent', border: 'none',
@@ -673,12 +673,12 @@ const s = {
     fontSize: 13, fontWeight: 600, width: '100%', marginTop: 4,
     fontFamily: 'inherit',
   },
-  warn:   { fontSize: 12, color: '#e8875a', margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 6 },
+  warn:   { fontSize: 12, color: 'var(--color-accent-warm, #e8875a)', margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 6 },
   dimBtn: { opacity: 0.45, cursor: 'not-allowed' },
 };
 
 const css = `
-  .profile-form-card select option { background: #1a1a2e; color: #fff; }
+  .profile-form-card select option { background: var(--ui-input-bg, #1a1a2e); color: var(--text); }
 
   .onboarding-gender-grid {
     display: grid;
@@ -688,8 +688,8 @@ const css = `
   }
 
   .onboarding-gender-option {
-    border: 1.5px solid var(--border, rgba(255, 255, 255, 0.15));
-    background: var(--card-bg, rgba(255, 255, 255, 0.04));
+    border: 1.5px solid var(--ui-btn-neutral-border, var(--border, rgba(255, 255, 255, 0.15)));
+    background: var(--ui-btn-neutral-bg, var(--card-bg, rgba(255, 255, 255, 0.04)));
     color: var(--text);
     border-radius: 12px;
     min-height: 44px;
@@ -706,23 +706,23 @@ const css = `
   }
 
   .onboarding-gender-option:hover {
-    border-color: rgba(147, 210, 255, 0.55);
-    background: rgba(147, 210, 255, 0.08);
+    border-color: var(--ui-btn-neutral-hover-border, rgba(255, 107, 107, 0.4));
+    background: var(--ui-btn-neutral-hover-bg, rgba(255, 107, 107, 0.08));
   }
 
   .onboarding-gender-option:focus-visible {
     outline: none;
-    border-color: var(--accent, #93d2ff);
-    box-shadow: 0 0 0 3px rgba(147, 210, 255, 0.2);
+    border-color: var(--ui-input-focus-border, var(--accent, #ff6b6b));
+    box-shadow: var(--ui-input-focus-ring, 0 0 0 3px rgba(255, 107, 107, 0.2));
   }
 
   .onboarding-gender-option.is-active {
-    border-color: var(--accent, #93d2ff);
-    background: rgba(147, 210, 255, 0.14);
+    border-color: var(--accent, #ff6b6b);
+    background: var(--color-accent-soft, rgba(255, 107, 107, 0.14));
   }
 
   .onboarding-gender-check {
-    color: var(--accent, #93d2ff);
+    color: var(--accent, #ff6b6b);
     display: inline-flex;
     align-items: center;
     justify-content: center;

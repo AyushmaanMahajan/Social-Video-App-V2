@@ -18,6 +18,21 @@ function StatusBadge({ status }) {
   return <span className={`badge ${tone}`}>{label}</span>;
 }
 
+function formatStatus(status) {
+  return status === 'connected' ? 'Connected' : status === 'skipped' ? 'Skipped' : 'Missed';
+}
+
+function formatLastInteraction(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 export default function Interactions({ socket, socketConnected, onlineIds = [] }) {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
@@ -213,7 +228,9 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
     getPresenceStatus(otherIds)
       .then((rows) => {
         const map = new Map();
-        rows.forEach((r) => map.set(Number(r.userId), { online: r.online, showStatus: r.showStatus }));
+        rows.forEach((r) =>
+          map.set(Number(r.userId), { online: Boolean(r.online), showStatus: r.showStatus !== false })
+        );
         setStatuses(map);
       })
       .catch(() => {});
@@ -287,8 +304,10 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
                 setMessages([]);
               }}
             >
-              <div className="avatar status-avatar">
-                {item.user.photo ? <img src={item.user.photo} alt={item.user.name} /> : <div className="avatar-fallback" />}
+              <div className="status-avatar">
+                <div className="avatar">
+                  {item.user.photo ? <img src={item.user.photo} alt={item.user.name} /> : <div className="avatar-fallback" />}
+                </div>
                 <span
                   className={`presence-dot ${isOnline(item.otherUserId) ? 'online' : 'offline'}`}
                   aria-label={isOnline(item.otherUserId) ? 'Online' : 'Offline'}
@@ -296,7 +315,7 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
               </div>
               <div className="interaction-info">
                 <p className="name">{item.user.name}</p>
-                <p className="meta">Last: {new Date(item.lastInteractionAt).toLocaleString()}</p>
+                <p className="meta">Last: {formatLastInteraction(item.lastInteractionAt)}</p>
               </div>
               <StatusBadge status={item.status} />
             </button>
@@ -315,7 +334,7 @@ export default function Interactions({ socket, socketConnected, onlineIds = [] }
                 </div>
                 <div>
                   <h3>{selected.user.name}</h3>
-                  <p className="meta">{selected.status}</p>
+                  <p className="meta">{formatStatus(selected.status)}</p>
                 </div>
                 <div className="chat-toggle">
                   <label className="chat-toggle-switch">
