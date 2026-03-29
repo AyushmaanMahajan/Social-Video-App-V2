@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { completeOnboarding } from '@/lib/api';
 import { detectBrowserLocation } from '@/lib/browserLocation';
+import { Switch } from '@/components/ui/Switch';
 
 // ─── Step config ────────────────────────────────────────────────────────────
 const DEFAULT_STEPS        = ['username', 'birthdate', 'gender', 'safety', 'photos', 'description', 'prompts'];
@@ -314,7 +315,7 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
   const [safetyConfirmed,setSafetyConfirmed]= useState(false);
   const [photos,         setPhotos]         = useState([]);
   const [description,    setDescription]    = useState('');
-  const [prompts,        setPrompts]        = useState([{ question: PROMPT_OPTIONS[0], answer: '' }]);
+  const [prompts,        setPrompts]        = useState([{ question: PROMPT_OPTIONS[0], answer: '' },{ question: PROMPT_OPTIONS[1], answer: '' }]);
   const [uploading,      setUploading]      = useState(false);
   const [submitting,     setSubmitting]     = useState(false);
   const [locationStatus, setLocationStatus] = useState('idle');
@@ -507,8 +508,11 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
               </div>
               <label className="toggle-item onboarding-toggle">
                 <span>Show gender on profile</span>
-                <input type="checkbox" className="toggle-checkbox" checked={genderVisible}
-                  onChange={e => setGenderVisible(e.target.checked)} />
+                <Switch
+                  checked={genderVisible}
+                  onCheckedChange={setGenderVisible}
+                  aria-label="Show gender on profile"
+                />
               </label>
               <div className="form-group" style={{ marginTop: 12 }}>
                 <label>Location</label>
@@ -533,8 +537,11 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
               </div>
               <label className="toggle-item onboarding-toggle">
                 <span>Show location on profile</span>
-                <input type="checkbox" className="toggle-checkbox" checked={showLocation}
-                  onChange={e => setShowLocation(e.target.checked)} />
+                <Switch
+                  checked={showLocation}
+                  onCheckedChange={setShowLocation}
+                  aria-label="Show location on profile"
+                />
               </label>
               <p className="muted onboarding-inline-note">Gender cannot be changed later.</p>
             </div>
@@ -552,8 +559,11 @@ function OnboardingFlow({ onCompleted, initialUsername = '' }) {
               </ul>
               <label className="toggle-item onboarding-toggle">
                 <span>I understand and agree</span>
-                <input type="checkbox" className="toggle-checkbox" checked={safetyConfirmed}
-                  onChange={e => setSafetyConfirmed(e.target.checked)} />
+                <Switch
+                  checked={safetyConfirmed}
+                  onCheckedChange={setSafetyConfirmed}
+                  aria-label="I understand and agree"
+                />
               </label>
             </div>
           )}
